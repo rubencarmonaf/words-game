@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordWars - Juego de Palabras Online</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Landing Page -->
+        <div id="landing-screen" class="screen active">
+            <div class="landing-content">
+                <header class="landing-header">
+                    <div class="logo-section">
+                        <div class="logo-container">
+                            <img src="./assets/logo.png" alt="WordWars Logo" class="logo-image" id="logo-image">
+                        </div>
+                    </div>
+                    <div class="auth-buttons">
+                        <button id="landing-login-btn" class="btn btn-secondary">Iniciar Sesión</button>
+                        <button id="landing-register-btn" class="btn btn-primary">Registrarse</button>
+                    </div>
+                </header>
+
+                <main class="landing-main">
+                    <!-- Hero Section -->
+                    <section class="hero-section">
+                        <div class="hero-content">
+                            <h2>Compite con palabras en tiempo real</h2>
+                            <p>Forma palabras con prefijos específicos y demuestra tu vocabulario contra jugadores de todo el mundo</p>
+                            <div class="hero-buttons">
+                                <button id="hero-play-btn" class="btn btn-primary btn-large">Jugar Ahora</button>
+                                <button id="hero-learn-btn" class="btn btn-secondary btn-large">Cómo Jugar</button>
+                            </div>
+                        </div>
+                        <div class="hero-image">
+                            <div class="game-preview">
+                                <div class="preview-header">
+                                    <span class="prefix-badge">DE</span>
+                                    <span class="timer">2:45</span>
+                                </div>
+                                <div class="preview-words">
+                                    <span class="word-item">demonio</span>
+                                    <span class="word-item">detergente</span>
+                                    <span class="word-item">dentista</span>
+                                    <span class="word-item">desarrollo</span>
+                                </div>
+                                <div class="preview-input">
+                                    <input type="text" placeholder="Escribe una palabra..." disabled>
+                                    <button class="btn btn-primary" disabled>Enviar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Features Section -->
+                    <section class="features-section">
+                        <h3>Características del Juego</h3>
+                        <div class="features-grid">
+                            <div class="feature-card">
+                                <div class="feature-icon">🏃</div>
+                                <h4>Modo Solo</h4>
+                                <p>Practica sin límite de tiempo y mejora tu vocabulario</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">⛓️</div>
+                                <h4>Modo Cadena</h4>
+                                <p>Eliminación por turnos - el último en pie gana</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">⚔️</div>
+                                <h4>Versus Online</h4>
+                                <p>Compite contra jugadores reales con ranking ELO</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">👥</div>
+                                <h4>Juega con Amigos</h4>
+                                <p>Partidas privadas sin afectar tu ranking</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- How to Play Section -->
+                    <section class="how-to-play-section">
+                        <h3>¿Cómo Jugar?</h3>
+                        <div class="steps-container">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Elige un Prefijo</h4>
+                                    <p>Selecciona un prefijo como "de", "pre" o "con"</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Forma Palabras</h4>
+                                    <p>Escribe palabras que empiecen con el prefijo seleccionado</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>Gana Puntos</h4>
+                                    <p>Cada palabra válida te da puntos. ¡No repitas palabras!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- CTA Section -->
+                    <section class="cta-section">
+                        <h3>¿Listo para la batalla?</h3>
+                        <p>Únete a miles de jugadores y demuestra tu dominio del español</p>
+                        <div class="cta-buttons">
+                            <button id="cta-register-btn" class="btn btn-primary btn-large">Crear Cuenta Gratis</button>
+                            <button id="cta-login-btn" class="btn btn-secondary btn-large">Ya tengo cuenta</button>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+
+        <!-- Login/Register Screen -->
+        <div id="auth-screen" class="screen">
+            <div class="auth-content">
+                <header>
+                    <button id="back-to-landing" class="back-btn">← Volver</button>
+                    <div class="logo-container">
+                        <img src="./assets/logo_black.png" alt="WordWars Logo" class="logo-image" id="logo-image-auth">
+                    </div>
+                    <p>Compite con jugadores de todo el mundo</p>
+                </header>
+
+                <div class="auth-tabs">
+                    <button class="tab-btn active" data-tab="login">Iniciar Sesión</button>
+                    <button class="tab-btn" data-tab="register">Registrarse</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form active">
+                    <div class="input-group">
+                        <label for="login-email">Email:</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="login-password">Contraseña:</label>
+                        <div class="password-input-container">
+                            <input type="password" id="login-password" required>
+                            <button type="button" class="password-toggle" data-target="login-password">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="register-form" class="auth-form">
+                    <div class="input-group">
+                        <label for="register-username">Nombre de usuario:</label>
+                        <input type="text" id="register-username" required minlength="3" maxlength="20">
+                    </div>
+                    <div class="input-group">
+                        <label for="register-email">Email:</label>
+                        <input type="email" id="register-email" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="register-password">Contraseña:</label>
+                        <div class="password-input-container">
+                            <input type="password" id="register-password" required minlength="6">
+                            <button type="button" class="password-toggle" data-target="register-password">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Registrarse</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="screen">
+            <div class="menu-content">
+                <header>
+                    <div class="logo-container">
+                        <img src="./assets/logo_black.png" alt="WordWars Logo" class="logo-image" id="logo-image-menu">
+                    </div>
+                    <div class="user-info">
+                        <span id="user-welcome"></span>
+                        <button id="logout-btn" class="btn btn-secondary">Cerrar Sesión</button>
+                    </div>
+                </header>
+
+                <div class="main-content">
+                    <!-- Left Column: Game Modes -->
+                    <div class="game-modes-section">
+                        <h2>Modos de Juego</h2>
+                        <div class="game-modes">
+                            <button class="mode-btn" data-mode="solo">
+                                <h3>🏃 Solo</h3>
+                                <p>Práctica sin límite de tiempo</p>
+                            </button>
+                            <button class="mode-btn" data-mode="cadena">
+                                <h3>⛓️ Cadena</h3>
+                                <p>Eliminación por turnos</p>
+                            </button>
+                            <button class="mode-btn" data-mode="versus">
+                                <h3>⚔️ Versus Online</h3>
+                                <p>Compite contra otros jugadores</p>
+                            </button>
+                            <button class="mode-btn" data-mode="lobby">
+                                <h3>🏠 Crear Lobby</h3>
+                                <p>Partida cadena con amigos</p>
+                            </button>
+                            <button class="mode-btn daily-challenge-btn" data-mode="daily">
+                                <h3>🔥 Reto Diario</h3>
+                                <p>2 min - Prefijo: <span id="daily-prefix">cargando...</span></p>
+                                <div class="daily-timer" id="daily-timer" style="display: none;">
+                                    <span class="timer-text">Tiempo restante: <span id="daily-time-left">2:00</span></span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Friends & Social -->
+                    <div class="friends-section">
+                        <div class="friends-header">
+                            <h2>Amigos</h2>
+                            <button id="add-friend-btn" class="btn btn-primary">+ Agregar</button>
+                        </div>
+                        
+                        <!-- Friend Requests -->
+                        <div class="friend-requests" id="friend-requests" style="display: none;">
+                            <h3>Peticiones Pendientes</h3>
+                            <div class="requests-list" id="requests-list"></div>
+                        </div>
+
+                        <!-- Friends List -->
+                        <div class="friends-list" id="friends-list">
+                            <div class="no-friends" id="no-friends">
+                                <p>No tienes amigos aún</p>
+                                <p>¡Agrega algunos para jugar juntos!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-stats">
+                    <h3>Estadísticas</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="user-elo">1200</span>
+                            <span class="stat-label">ELO</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="user-games">0</span>
+                            <span class="stat-label">Partidas</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="user-wins">0</span>
+                            <span class="stat-label">Victorias</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="user-rate">0%</span>
+                            <span class="stat-label">% Victorias</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lobby Screen -->
+        <div id="lobby-screen" class="screen">
+            <div class="lobby-content">
+                <header>
+                    <button id="back-to-menu-from-lobby" class="back-btn">← Volver</button>
+                    <div class="lobby-header">
+                        <h1>🏠 Lobby de Partida</h1>
+                        <div class="lobby-info-header">
+                            <span>Modo: Cadena</span>
+                            <span>Jugadores: <span id="lobby-player-count-header">1</span>/15</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="lobby-main">
+                    <!-- Left: Players List -->
+                    <div class="lobby-players-section">
+                        <h2>Jugadores en el Lobby</h2>
+                        <div class="lobby-players-list" id="lobby-players-list">
+                            <div class="lobby-player host">
+                                <div class="player-info">
+                                    <span class="player-name" id="lobby-host-name">Tú (Anfitrión)</span>
+                                    <span class="player-status">👑</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Invite & Controls -->
+                    <div class="lobby-controls-section">
+                        <div class="invite-section">
+                            <h2>Invitar Amigos</h2>
+                            <div class="friends-to-invite" id="friends-to-invite">
+                                <div class="no-friends-to-invite">
+                                    <p>No tienes amigos para invitar</p>
+                                    <p>¡Agrega algunos amigos primero!</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lobby-actions-section">
+                            <button id="start-lobby-game" class="btn btn-primary" disabled>
+                                Esperando jugadores...
+                            </button>
+                            <button id="leave-lobby" class="btn btn-secondary">
+                                Salir del Lobby
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Setup -->
+        <div id="game-setup" class="screen">
+            <div class="setup-content">
+                <h2 id="setup-title">Configuración del juego</h2>
+                
+                <!-- Prefix Selection -->
+                <div class="input-group">
+                    <label for="prefix-input">Prefijo de las palabras:</label>
+                    <input type="text" id="prefix-input" placeholder="Ej: de, pre, con..." maxlength="5">
+                </div>
+
+                <!-- Player Configuration (for friendly mode) -->
+                <div id="player-config" class="input-group" style="display: none;">
+                    <label for="player-count">Número de jugadores:</label>
+                    <input type="number" id="player-count" min="2" max="8" value="2">
+                </div>
+
+                <!-- Player Names (for friendly mode) -->
+                <div id="player-names" class="input-group" style="display: none;">
+                    <label>Nombres de los jugadores:</label>
+                    <div id="names-container"></div>
+                </div>
+
+                <div class="button-group">
+                    <button id="start-game" class="btn btn-primary">Comenzar Juego</button>
+                    <button id="back-to-menu" class="btn btn-secondary">Volver al Menú</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matchmaking Screen -->
+        <div id="matchmaking-screen" class="screen">
+            <div class="matchmaking-content">
+                <h2>Buscando partida...</h2>
+                <div class="loading-spinner"></div>
+                <p>Encontrando un oponente con ELO similar</p>
+                <button id="cancel-matchmaking" class="btn btn-danger">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="game-info">
+                    <span id="current-prefix"></span>
+                    <span id="game-timer"></span>
+                </div>
+                <div class="game-stats">
+                    <span id="word-count">Palabras: 0</span>
+                </div>
+            </div>
+
+            <div class="game-content">
+                <div class="word-input-section">
+                    <input type="text" id="word-input" placeholder="Escribe una palabra..." autocomplete="off">
+                    <button id="submit-word" class="btn btn-primary">Enviar</button>
+                </div>
+
+                <div class="words-display">
+                    <h3>Palabras encontradas:</h3>
+                    <div id="words-list"></div>
+                </div>
+            </div>
+
+            <div class="game-controls">
+                <button id="end-game" class="btn btn-danger">Terminar Juego</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="screen">
+            <div class="results-content">
+                <h2>Resultados</h2>
+                <div id="results-display"></div>
+                <div class="button-group">
+                    <button id="play-again" class="btn btn-primary">Jugar de Nuevo</button>
+                    <button id="new-game" class="btn btn-secondary">Nuevo Juego</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Challenge Screen -->
+    <div id="daily-challenge-screen" class="screen">
+        <div class="daily-challenge-content">
+            <header>
+                <button id="back-to-menu-daily" class="back-btn">← Volver</button>
+                <div class="logo-container">
+                    <img src="./assets/logo_black.png" alt="WordWars Logo" class="logo-image" id="logo-image-daily">
+                </div>
+                <h1>🔥 Reto Diario</h1>
+                <p>Forma el máximo de palabras en 2 minutos</p>
+            </header>
+
+            <div class="daily-challenge-info">
+                <div class="challenge-prefix">
+                    <h2>Prefijo de hoy: <span id="challenge-prefix-display">cargando...</span></h2>
+                </div>
+                <div class="challenge-timer">
+                    <div class="timer-circle">
+                        <span id="challenge-time-left">2:00</span>
+                    </div>
+                </div>
+                <div class="challenge-stats">
+                    <div class="stat">
+                        <span class="stat-label">Palabras encontradas:</span>
+                        <span class="stat-value" id="challenge-words-count">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Puntuación:</span>
+                        <span class="stat-value" id="challenge-score">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="daily-game-area">
+                <div class="word-input-section">
+                    <input type="text" id="daily-word-input" placeholder="Escribe una palabra..." autocomplete="off" disabled>
+                    <button id="daily-submit-word" class="btn btn-primary" disabled>Enviar</button>
+                </div>
+                
+                <div class="words-display">
+                    <h3>Palabras encontradas:</h3>
+                    <div id="daily-words-list" class="words-list"></div>
+                </div>
+            </div>
+
+            <div class="daily-challenge-actions">
+                <button id="start-daily-challenge" class="btn btn-primary">Comenzar Reto</button>
+                <button id="end-daily-challenge" class="btn btn-secondary" style="display: none;">Terminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Friend Modal -->
+    <div id="add-friend-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Amigo</h2>
+                <button class="modal-close" id="close-add-friend">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Ingresa el nombre de usuario del amigo que quieres agregar:</p>
+                <input type="text" id="friend-username" placeholder="Nombre de usuario" autocomplete="off">
+                <div class="modal-actions">
+                    <button id="send-friend-request" class="btn btn-primary">Enviar Petición</button>
+                    <button id="cancel-add-friend" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module" src="./main.ts"></script>
+</body>
+</html>
