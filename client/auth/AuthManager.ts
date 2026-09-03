@@ -103,6 +103,20 @@ export class AuthManager {
         return result;
     }
 
+    async forgotPassword(email: string): Promise<ApiResponse<{ message: string }>> {
+        return this.makeRequest<{ message: string }>('/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+    }
+
+    async resetPassword(token: string, password: string): Promise<ApiResponse<{ message: string }>> {
+        return this.makeRequest<{ message: string }>('/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ token, password })
+        });
+    }
+
     async getProfile(): Promise<ApiResponse<IUserPublic>> {
         return this.makeRequest<IUserPublic>('/profile');
     }
@@ -134,6 +148,18 @@ export class AuthManager {
         return this.makeRequest<{ message: string }>('/friends/request', {
             method: 'POST',
             body: JSON.stringify({ friendUsername })
+        });
+    }
+
+    // Daily Challenge methods
+    async getDailyChallenge(): Promise<ApiResponse<any>> {
+        return this.makeRequest<any>('/daily-challenge');
+    }
+
+    async completeDailyChallenge(words: string[]): Promise<ApiResponse<any>> {
+        return this.makeRequest<any>('/daily-challenge/complete', {
+            method: 'POST',
+            body: JSON.stringify({ words })
         });
     }
 }

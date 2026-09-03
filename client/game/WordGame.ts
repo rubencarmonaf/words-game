@@ -157,6 +157,18 @@ export class WordGame {
         
         if (!word) return;
 
+        // Check if word starts with prefix first
+        if (!word.toLowerCase().startsWith(this.gameState.prefix.toLowerCase())) {
+            this.ui.showMessage(`La palabra debe empezar con "${this.gameState.prefix}"`, 'error');
+            return;
+        }
+
+        // Check if word already used
+        if (this.gameState.words.includes(word.toLowerCase())) {
+            this.ui.showMessage('Ya has usado esta palabra', 'error');
+            return;
+        }
+
         this.ui.setLoading(true);
 
         try {
@@ -169,19 +181,6 @@ export class WordGame {
                 return;
             }
 
-            // Check if word starts with prefix
-            if (!word.toLowerCase().startsWith(this.gameState.prefix.toLowerCase())) {
-                this.ui.showMessage(`La palabra debe empezar con "${this.gameState.prefix}"`, 'error');
-                this.ui.setLoading(false);
-                return;
-            }
-
-            // Check if word is already used
-            if (this.gameState.words.includes(word.toLowerCase())) {
-                this.ui.showMessage('Esta palabra ya fue usada', 'error');
-                this.ui.setLoading(false);
-                return;
-            }
 
             // Add word to game
             this.gameState.words.push(word.toLowerCase());

@@ -12,6 +12,8 @@ export interface IUser extends Document {
   winRate: number;
   createdAt: Date;
   lastActive: Date;
+  resetPasswordToken?: string | null;
+  resetPasswordExpires?: Date | null;
   updateStats(): void;
   updateElo(opponentElo: number, won: boolean, kFactor?: number): number;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -157,6 +159,35 @@ export interface AuthenticatedRequest {
   };
   body: any;
   headers: any;
+}
+
+// Daily Challenge Types
+export interface IDailyChallenge {
+  _id: string;
+  date: string;
+  prefix: string;
+  createdAt: Date;
+}
+
+export interface IDailyChallengeCompletion {
+  _id: string;
+  userId: string;
+  date: string;
+  wordsFound: string[];
+  completedAt: Date;
+  rewardEarned: number;
+}
+
+export interface DailyChallengeResponse {
+  challenge: IDailyChallenge;
+  isCompleted: boolean;
+  wordsFound?: string[];
+  timeUntilNext?: {
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalSeconds: number;
+  };
 }
 
 // Socket Extensions

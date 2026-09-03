@@ -10,7 +10,8 @@ class GameApp {
     private ui: UI;
     private socketManager: SocketManager;
     private wordGame: WordGame;
-    
+    private resetToken: string | null = null;
+
     // Daily Challenge properties
     private dailyChallenge: {
         prefix: string;
@@ -18,6 +19,7 @@ class GameApp {
         words: string[];
         score: number;
         isActive: boolean;
+        isCompleted: boolean;
         timer: NodeJS.Timeout | null;
     } = {
         prefix: '',
@@ -25,6 +27,7 @@ class GameApp {
         words: [],
         score: 0,
         isActive: false,
+        isCompleted: false,
         timer: null
     };
 
@@ -40,7 +43,18 @@ class GameApp {
     private initializeApp(): void {
         // Initialize logo
         this.initializeLogo();
-        
+
+        this.setupEventListeners();
+
+        // Reset de contraseña: si la URL trae ?reset=TOKEN, mostramos el formulario de reseteo
+        const resetToken = new URLSearchParams(window.location.search).get('reset');
+        if (resetToken) {
+            this.resetToken = resetToken;
+            this.showAuthScreen();
+            this.showResetForm();
+            return;
+        }
+
         // Check if user is already logged in
         const token = localStorage.getItem('authToken');
         if (token) {
@@ -50,8 +64,29 @@ class GameApp {
         } else {
             this.showLandingPage();
         }
+        this.setupScrollReveal();
+    }
 
-        this.setupEventListeners();
+    // Reveal landing sections as they scroll into view
+    private setupScrollReveal(): void {
+        const targets = document.querySelectorAll<HTMLElement>('[data-reveal]');
+        if (!targets.length) return;
+
+        if (!('IntersectionObserver' in window)) {
+            targets.forEach(el => el.classList.add('ww-in'));
+            return;
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('ww-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+
+        targets.forEach(el => observer.observe(el));
     }
 
     private initializeLogo(): void {
@@ -156,11 +191,11 @@ class GameApp {
                 if (input.type === 'password') {
                     input.type = 'text';
                     button.classList.add('active');
-                    button.querySelector('.eye-icon')!.textContent = '🙈';
+                    button.setAttribute('aria-label', 'Ocultar contraseña');
                 } else {
                     input.type = 'password';
                     button.classList.remove('active');
-                    button.querySelector('.eye-icon')!.textContent = '👁️';
+                    button.setAttribute('aria-label', 'Mostrar contraseña');
                 }
             });
         });
@@ -268,7 +303,7 @@ class GameApp {
 
         document.getElementById('hero-learn-btn')?.addEventListener('click', () => {
             // Scroll to how to play section
-            document.querySelector('.how-to-play-section')?.scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('como')?.scrollIntoView({ behavior: 'smooth' });
         });
 
         document.getElementById('cta-register-btn')?.addEventListener('click', () => {
@@ -285,6 +320,31 @@ class GameApp {
         document.getElementById('back-to-landing')?.addEventListener('click', () => {
             this.showLandingPage();
         });
+
+        // Password reset flow
+        document.getElementById('forgot-password-link')?.addEventListener('click', () => {
+            this.showForgotForm();
+        });
+
+        document.getElementById('forgot-back-link')?.addEventListener('click', () => {
+            this.switchAuthTab('login');
+        });
+
+        document.getElementById('reset-back-link')?.addEventListener('click', () => {
+            this.resetToken = null;
+            this.clearResetQueryParam();
+            this.switchAuthTab('login');
+        });
+
+        document.getElementById('forgot-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleForgotPassword();
+        });
+
+        document.getElementById('reset-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleResetPassword();
+        });
     }
 
     private async handleLogin(): Promise<void> {
@@ -293,7 +353,7 @@ class GameApp {
 
         try {
             const result = await this.authManager.login(email, password);
-            if (result.success) {
+            if (result.success && result.data) {
                 this.showMainMenu();
                 this.updateUserInfo(result.data.user);
             } else {
@@ -311,7 +371,7 @@ class GameApp {
 
         try {
             const result = await this.authManager.register(username, email, password);
-            if (result.success) {
+            if (result.success && result.data) {
                 this.showMainMenu();
                 this.updateUserInfo(result.data.user);
             } else {
@@ -328,6 +388,9 @@ class GameApp {
     }
 
     private switchAuthTab(tab: string): void {
+        // Las pestañas login/register vuelven a ser visibles
+        document.querySelector('.auth-tabs')?.classList.remove('auth-tabs-hidden');
+
         // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
@@ -339,6 +402,84 @@ class GameApp {
             form.classList.remove('active');
         });
         document.getElementById(`${tab}-form`)?.classList.add('active');
+    }
+
+    // Muestra un formulario de auth (forgot/reset) ocultando las pestañas login/register
+    private showAuthOnlyForm(formId: string): void {
+        document.querySelector('.auth-tabs')?.classList.add('auth-tabs-hidden');
+        document.querySelectorAll('.auth-form').forEach(form => {
+            form.classList.remove('active');
+        });
+        document.getElementById(formId)?.classList.add('active');
+    }
+
+    private showForgotForm(): void {
+        this.showAuthOnlyForm('forgot-form');
+    }
+
+    private showResetForm(): void {
+        this.showAuthOnlyForm('reset-form');
+    }
+
+    private clearResetQueryParam(): void {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('reset');
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+    }
+
+    private async handleForgotPassword(): Promise<void> {
+        const email = (document.getElementById('forgot-email') as HTMLInputElement).value.trim();
+        if (!email) {
+            this.ui.showMessage('Introduce tu email', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.authManager.forgotPassword(email);
+            if (result.success) {
+                this.ui.showMessage(
+                    result.data?.message || 'Si el email está registrado, recibirás un enlace.',
+                    'success'
+                );
+                this.switchAuthTab('login');
+            } else {
+                this.ui.showMessage(result.message || 'No se pudo procesar la solicitud', 'error');
+            }
+        } catch (error) {
+            this.ui.showMessage('Error de conexión', 'error');
+        }
+    }
+
+    private async handleResetPassword(): Promise<void> {
+        const password = (document.getElementById('reset-password') as HTMLInputElement).value;
+        const confirm = (document.getElementById('reset-password-confirm') as HTMLInputElement).value;
+
+        if (password.length < 6) {
+            this.ui.showMessage('La contraseña debe tener al menos 6 caracteres', 'error');
+            return;
+        }
+        if (password !== confirm) {
+            this.ui.showMessage('Las contraseñas no coinciden', 'error');
+            return;
+        }
+        if (!this.resetToken) {
+            this.ui.showMessage('Enlace de reseteo no válido', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.authManager.resetPassword(this.resetToken, password);
+            if (result.success) {
+                this.ui.showMessage(result.data?.message || 'Contraseña actualizada. Inicia sesión.', 'success');
+                this.resetToken = null;
+                this.clearResetQueryParam();
+                this.switchAuthTab('login');
+            } else {
+                this.ui.showMessage(result.message || 'No se pudo restablecer la contraseña', 'error');
+            }
+        } catch (error) {
+            this.ui.showMessage('Error de conexión', 'error');
+        }
     }
 
     private selectGameMode(mode: string): void {
@@ -360,6 +501,7 @@ class GameApp {
     private showMainMenu(): void {
         this.ui.showScreen('main-menu');
         this.updateUserInfo();
+        this.updateDailyChallengeStatus();
     }
 
     private async updateUserInfo(user?: any): Promise<void> {
@@ -543,14 +685,26 @@ class GameApp {
         this.initializeDailyChallenge();
     }
 
-    private initializeDailyChallenge(): void {
-        // Generate daily prefix (for now, random - later will be server-generated)
-        const prefixes = ['de', 'pre', 'con', 'des', 're', 'in', 'so', 'sub', 'pro', 'anti'];
-        this.dailyChallenge.prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    private async initializeDailyChallenge(): Promise<void> {
+        try {
+            // Get daily challenge from server
+            const result = await this.authManager.getDailyChallenge();
+            
+            if (result.success) {
+                const challenge = result.data.challenge;
+                this.dailyChallenge.prefix = challenge.prefix;
+                
+                
+                // Check if already completed
+                if (result.data.isCompleted) {
+                    this.showDailyChallengeCompleted(result.data.wordsFound);
+                    return;
+                }
         
         // Update UI
         document.getElementById('daily-prefix')!.textContent = this.dailyChallenge.prefix;
         document.getElementById('challenge-prefix-display')!.textContent = this.dailyChallenge.prefix;
+                
         
         // Reset challenge state
         this.dailyChallenge.timeLeft = 120;
@@ -560,9 +714,19 @@ class GameApp {
         
         // Update UI
         this.updateDailyChallengeUI();
+            } else {
+                this.ui.showMessage('Error cargando el reto diario', 'error');
+            }
+        } catch (error) {
+            console.error('Error initializing daily challenge:', error);
+            this.ui.showMessage('Error de conexión', 'error');
+        }
     }
 
     private startDailyChallenge(): void {
+        // Check if already completed today
+        this.checkDailyChallengeStatus();
+        
         this.dailyChallenge.isActive = true;
         this.dailyChallenge.timeLeft = 120;
         this.dailyChallenge.words = [];
@@ -597,7 +761,7 @@ class GameApp {
         }, 1000);
     }
 
-    private endDailyChallenge(): void {
+    private async endDailyChallenge(): Promise<void> {
         this.dailyChallenge.isActive = false;
         
         if (this.dailyChallenge.timer) {
@@ -613,11 +777,49 @@ class GameApp {
         
         input.disabled = true;
         submitBtn.disabled = true;
-        startBtn.style.display = 'inline-block';
+        startBtn.style.display = 'none'; // Hide start button permanently
         endBtn.style.display = 'none';
+        
+        // Send words to server
+        if (this.dailyChallenge.words.length >= 3) {
+            try {
+                const result = await this.authManager.completeDailyChallenge(this.dailyChallenge.words);
+                if (result.success) {
+                    this.showDailyMessage(result.data.message, 'success');
+                    // Mark as completed locally
+                    this.dailyChallenge.isCompleted = true;
+                } else {
+                    this.showDailyMessage(result.message || 'Error completando el reto', 'error');
+                }
+            } catch (error) {
+                console.error('Error completing daily challenge:', error);
+                this.showDailyMessage('Error de conexión', 'error');
+            }
+        } else {
+            this.showDailyMessage('Necesitas al menos 3 palabras para completar el reto', 'error');
+        }
         
         // Show results
         this.showDailyChallengeResults();
+        
+        // Return to main menu after completion
+        setTimeout(() => {
+            this.showMainMenu();
+            this.updateDailyChallengeStatus();
+        }, 3000); // Wait 3 seconds to show completion message
+    }
+
+    private async checkDailyChallengeStatus(): Promise<void> {
+        try {
+            const result = await this.authManager.getDailyChallenge();
+            if (result.success && result.data.isCompleted) {
+                // Already completed, show completed state
+                this.showDailyChallengeCompleted(result.data.wordsFound);
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking daily challenge status:', error);
+        }
     }
 
     private async submitDailyWord(): Promise<void> {
@@ -626,8 +828,9 @@ class GameApp {
         
         if (!word) return;
         
-        // Check if word starts with prefix
-        if (!word.startsWith(this.dailyChallenge.prefix)) {
+        
+        // Check if word starts with prefix (convert both to lowercase for comparison)
+        if (!word.startsWith(this.dailyChallenge.prefix.toLowerCase())) {
             this.showDailyMessage(`La palabra debe empezar con "${this.dailyChallenge.prefix}"`, 'error');
             return;
         }
@@ -640,26 +843,19 @@ class GameApp {
         
         // Validate word with API
         try {
-            const response = await fetch('/api/validate-word', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                },
-                body: JSON.stringify({ word })
-            });
+            const validation = await this.authManager.validateWord(word);
             
-            const result = await response.json();
-            
-            if (result.valid) {
-                this.dailyChallenge.words.push(word);
-                this.dailyChallenge.score += this.calculateWordScore(word);
-                this.updateDailyChallengeUI();
-                this.showDailyMessage(`¡Palabra válida! +${this.calculateWordScore(word)} puntos`, 'success');
-                input.value = '';
-            } else {
-                this.showDailyMessage('Palabra no válida', 'error');
+            if (!validation.success || !validation.data?.valid) {
+                this.showDailyMessage('Palabra no válida en el diccionario español', 'error');
+                return;
             }
+            
+            // Add word to local list
+            this.dailyChallenge.words.push(word);
+            this.updateDailyChallengeUI();
+            this.updateDailyWordsList();
+            this.showDailyMessage(`¡Palabra válida!`, 'success');
+            input.value = '';
         } catch (error) {
             console.error('Error validating word:', error);
             this.showDailyMessage('Error validando la palabra', 'error');
@@ -685,8 +881,10 @@ class GameApp {
         // Update stats
         document.getElementById('challenge-words-count')!.textContent = this.dailyChallenge.words.length.toString();
         document.getElementById('challenge-score')!.textContent = this.dailyChallenge.score.toString();
-        
-        // Update words list
+    }
+
+    private updateDailyWordsList(): void {
+        // Update words list only when words change
         const wordsList = document.getElementById('daily-words-list')!;
         wordsList.innerHTML = '';
         
@@ -725,16 +923,136 @@ class GameApp {
     }
 
     private showDailyChallengeResults(): void {
-        const message = `¡Reto completado! Encontraste ${this.dailyChallenge.words.length} palabras y obtuviste ${this.dailyChallenge.score} puntos.`;
+        const message = `¡Reto completado! Encontraste ${this.dailyChallenge.words.length} palabras.`;
         this.showDailyMessage(message, 'success');
+    }
+
+    private showDailyChallengeCompleted(wordsFound: string[]): void {
+        // Show completed state
+        document.getElementById('daily-prefix')!.textContent = this.dailyChallenge.prefix;
+        document.getElementById('challenge-prefix-display')!.textContent = this.dailyChallenge.prefix;
         
-        // TODO: Save results to server
-        console.log('Daily challenge results:', {
-            prefix: this.dailyChallenge.prefix,
-            words: this.dailyChallenge.words,
-            score: this.dailyChallenge.score,
-            timeLeft: this.dailyChallenge.timeLeft
-        });
+        // Disable all inputs
+        const input = document.getElementById('daily-word-input') as HTMLInputElement;
+        const submitBtn = document.getElementById('daily-submit-word') as HTMLButtonElement;
+        const startBtn = document.getElementById('start-daily-challenge') as HTMLButtonElement;
+        const endBtn = document.getElementById('end-daily-challenge') as HTMLButtonElement;
+        
+        input.disabled = true;
+        submitBtn.disabled = true;
+        startBtn.style.display = 'none';
+        endBtn.style.display = 'none';
+        
+        // Show completed message
+        const completedMessage = document.createElement('div');
+        completedMessage.className = 'daily-completed-message';
+        completedMessage.innerHTML = `
+            <h3>¡Reto completado!</h3>
+            <p>Ya completaste el reto de hoy con ${wordsFound.length} palabras:</p>
+            <div class="completed-words">
+                ${wordsFound.map(word => `<span class="completed-word">${word}</span>`).join('')}
+            </div>
+        `;
+        completedMessage.style.cssText = `
+            text-align: center;
+            padding: 20px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            margin: 20px 0;
+            color: #155724;
+        `;
+        
+        // Insert after the challenge info
+        const challengeInfo = document.querySelector('.challenge-info');
+        if (challengeInfo) {
+            challengeInfo.insertAdjacentElement('afterend', completedMessage);
+        }
+        
+        // Update words list
+        this.dailyChallenge.words = wordsFound;
+        this.updateDailyChallengeUI();
+        this.updateDailyWordsList();
+    }
+
+    private async updateDailyChallengeStatus(): Promise<void> {
+        try {
+            const result = await this.authManager.getDailyChallenge();
+            if (result.success) {
+                const dailyPrefixElement = document.getElementById('daily-prefix');
+                const dailyTimerElement = document.getElementById('daily-timer');
+                
+                if (dailyPrefixElement && dailyTimerElement) {
+                    const dailyChallengeBtn = document.querySelector('.daily-challenge-btn');
+                    
+                    if (result.data.isCompleted) {
+                        // Show completed status with countdown
+                        dailyPrefixElement.innerHTML = `✅ Completado`;
+                        dailyTimerElement.style.display = 'block';
+                        dailyTimerElement.innerHTML = `
+                            <span class="timer-text">Próximo reto en: <span id="countdown-timer" class="countdown-timer">--:--:--</span></span>
+                        `;
+                        
+                        // Add completed class to button
+                        if (dailyChallengeBtn) {
+                            dailyChallengeBtn.classList.add('completed');
+                        }
+                        
+                        // Start countdown timer
+                        this.startDailyCountdown(result.data.timeUntilNext);
+                    } else {
+                        // Show available status
+                        dailyPrefixElement.textContent = result.data.challenge.prefix;
+                        dailyTimerElement.style.display = 'none';
+                        
+                        // Remove completed class from button
+                        if (dailyChallengeBtn) {
+                            dailyChallengeBtn.classList.remove('completed');
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error updating daily challenge status:', error);
+        }
+    }
+
+    private startDailyCountdown(timeUntilNext: any): void {
+        if (!timeUntilNext) return;
+        
+        let totalSeconds = timeUntilNext.totalSeconds;
+        
+        const updateCountdown = () => {
+            if (totalSeconds <= 0) {
+                // Refresh the status when countdown reaches zero
+                this.updateDailyChallengeStatus();
+                return;
+            }
+            
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            const countdownTimer = document.getElementById('countdown-timer');
+            if (countdownTimer) {
+                countdownTimer.textContent = timeString;
+            }
+            
+            totalSeconds--;
+        };
+        
+        // Update immediately
+        updateCountdown();
+        
+        // Update every second
+        const countdownInterval = setInterval(() => {
+            updateCountdown();
+            if (totalSeconds <= 0) {
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
     }
 }
 

@@ -5,14 +5,18 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 // Import models
 import User from './models/User';
 import Game from './models/Game';
 import Friendship from './models/Friendship';
+import DailyChallenge from './models/DailyChallenge';
+import DailyChallengeCompletion from './models/DailyChallengeCompletion';
 
 // Import services
 import { dictionaryService } from './utils/dictionary';
+import { sendPasswordResetEmail } from './utils/email';
 
 // Import types
 import { 
@@ -22,7 +26,8 @@ import {
   WordValidationResponse,
   MatchmakingPlayer,
   AuthenticatedSocket,
-  SocketEvents
+  SocketEvents,
+  DailyChallengeResponse
 } from './types';
 
 dotenv.config();
@@ -189,6 +194,93 @@ app.post('/api/login', async (req, res) => {
     res.json({ success: true, data: response });
   } catch (error) {
     console.error('Error en login:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Solicitar reseteo de contraseña: genera token, lo guarda hasheado y envía el email
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ success: false, message: 'Email requerido' });
+      return;
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Respuesta genérica: no revelamos si el email existe o no (evita enumeración de cuentas)
+    const genericResponse = {
+      success: true,
+      data: { message: 'Si el email está registrado, recibirás un enlace para restablecer tu contraseña.' }
+    };
+
+    if (!user) {
+      res.json(genericResponse);
+      return;
+    }
+
+    // Token en claro (va en el enlace) + hash sha256 que es lo único que guardamos
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    await user.save();
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${clientUrl}/?reset=${rawToken}`;
+
+    try {
+      await sendPasswordResetEmail(user.email, resetUrl);
+    } catch (mailError) {
+      console.error('Error enviando email de reseteo:', mailError);
+      // No exponemos el fallo de email al cliente; el token ya está guardado
+    }
+
+    res.json(genericResponse);
+  } catch (error) {
+    console.error('Error en forgot-password:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Confirmar reseteo: valida el token y establece la nueva contraseña
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      res.status(400).json({ success: false, message: 'Token y contraseña requeridos' });
+      return;
+    }
+
+    if (password.length < 6) {
+      res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+      return;
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, message: 'El enlace no es válido o ha caducado. Solicita uno nuevo.' });
+      return;
+    }
+
+    user.password = password; // el hook pre-save lo hashea
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({ success: true, data: { message: 'Contraseña actualizada. Ya puedes iniciar sesión.' } });
+  } catch (error) {
+    console.error('Error en reset-password:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
@@ -388,6 +480,132 @@ app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
 app.post('/api/matchmaking/leave', authenticateToken, (req: any, res) => {
   matchmakingQueue.delete(req.user.userId);
   res.json({ success: true, message: 'Saliendo de la cola' });
+});
+
+// Daily Challenge endpoints
+app.get('/api/daily-challenge', authenticateToken, async (req: any, res) => {
+  try {
+    // Get today's challenge
+    const challenge = await (DailyChallenge as any).getTodaysChallenge();
+    
+    // Check if user has already completed today's challenge
+    const hasCompleted = await (DailyChallengeCompletion as any).hasUserCompletedToday(req.user.userId);
+    
+    let wordsFound = [];
+    if (hasCompleted) {
+      const completion = await (DailyChallengeCompletion as any).findOne({ 
+        userId: req.user.userId, 
+        date: challenge.date 
+      });
+      wordsFound = completion?.wordsFound || [];
+    }
+
+    // Calculate time until next challenge (next day at 00:00)
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const timeUntilNext = tomorrow.getTime() - now.getTime();
+    const totalSeconds = Math.floor(timeUntilNext / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const response: DailyChallengeResponse = {
+      challenge: {
+        _id: challenge._id.toString(),
+        date: challenge.date,
+        prefix: challenge.prefix,
+        createdAt: challenge.createdAt
+      },
+      isCompleted: hasCompleted,
+      wordsFound: hasCompleted ? wordsFound : undefined,
+      timeUntilNext: {
+        hours,
+        minutes,
+        seconds,
+        totalSeconds
+      }
+    };
+
+    res.json({ success: true, data: response });
+  } catch (error) {
+    console.error('Error obteniendo reto diario:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      return;
+    }
+
+    // Check if user has already completed today's challenge
+    const hasCompleted = await (DailyChallengeCompletion as any).hasUserCompletedToday(req.user.userId);
+    if (hasCompleted) {
+      res.status(400).json({ success: false, message: 'Ya completaste el reto de hoy' });
+      return;
+    }
+
+    const { words } = req.body;
+    
+    if (!words || !Array.isArray(words) || words.length === 0) {
+      res.status(400).json({ success: false, message: 'Debes enviar al menos una palabra' });
+      return;
+    }
+
+    // Get today's challenge
+    const challenge = await (DailyChallenge as any).getTodaysChallenge();
+    
+    // Validate words using dictionary service
+    const validWords: string[] = [];
+    for (const word of words) {
+      if (typeof word === 'string' && word.length >= 3) {
+        const upperWord = word.toUpperCase();
+        // Check if word starts with the required prefix
+        if (upperWord.startsWith(challenge.prefix)) {
+          // Validate with dictionary service
+          const isValid = await dictionaryService.validateWord(upperWord);
+          if (isValid) {
+            validWords.push(upperWord);
+          }
+        }
+      }
+    }
+
+    // Check if user found at least 3 valid words
+    if (validWords.length < 3) {
+      res.status(400).json({ 
+        success: false, 
+        message: `Necesitas encontrar al menos 3 palabras válidas que empiecen con "${challenge.prefix}"` 
+      });
+      return;
+    }
+
+    // Create completion record (no ELO reward, just training)
+    const completion = new (DailyChallengeCompletion as any)({
+      userId: req.user.userId,
+      date: challenge.date,
+      wordsFound: validWords,
+      rewardEarned: 0
+    });
+    await completion.save();
+
+    res.json({ 
+      success: true, 
+      data: {
+        wordsFound: validWords,
+        message: `¡Reto completado! Encontraste ${validWords.length} palabras.`
+      }
+    });
+  } catch (error) {
+    console.error('Error completando reto diario:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
 });
 
 // Socket.io for real-time gameplay
