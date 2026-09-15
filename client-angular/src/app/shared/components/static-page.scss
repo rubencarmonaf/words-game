@@ -1,0 +1,51 @@
+.ww-static-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ww-static-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 22px 40px;
+}
+
+.ww-brand {
+  display: flex;
+  align-items: center;
+}
+.ww-brand-logo {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+.ww-static-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ww-line-strong);
+  color: var(--ww-text);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ww-static-back:hover {
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+@media (max-width: 420px) {
+  .ww-static-nav {
+    padding: 16px 18px;
+  }
+}

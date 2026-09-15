@@ -1,0 +1,133 @@
+/* Vocabulario compartido por las páginas legales/utilitarias (privacidad,
+ * términos, aviso legal, cookies, contacto, gracias, 404) — igual que
+ * forms.scss/buttons.scss, vive a nivel global porque varias pantallas
+ * hermanas comparten la misma tipografía y layout, no porque sea de un
+ * componente concreto. */
+
+.ww-legal {
+  flex: 1;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 40px 90px;
+}
+.ww-legal h1 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  margin-bottom: 6px;
+}
+.ww-legal-updated {
+  font-size: 0.86rem;
+  color: var(--ww-faint);
+  margin-bottom: 36px;
+}
+.ww-legal h2 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  margin-top: 40px;
+  margin-bottom: 14px;
+}
+.ww-legal p,
+.ww-legal li {
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: var(--ww-text);
+  opacity: 0.9;
+}
+.ww-legal p {
+  margin-bottom: 14px;
+}
+.ww-legal ul,
+.ww-legal ol {
+  margin: 0 0 14px 22px;
+}
+.ww-legal li {
+  margin-bottom: 6px;
+}
+.ww-legal strong {
+  color: var(--ww-text);
+  opacity: 1;
+}
+.ww-legal a {
+  color: var(--ww-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ww-legal-intro {
+  font-size: 1.05rem !important;
+  color: var(--ww-muted) !important;
+  opacity: 1 !important;
+  margin-bottom: 32px !important;
+}
+.ww-legal code {
+  font-family: var(--ww-mono);
+  font-size: 0.9em;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* ---------- Contacto / Gracias / 404 (centradas) ---------- */
+.ww-center-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px 90px;
+}
+.ww-center-card {
+  max-width: 520px;
+}
+.ww-center-card h1 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin-bottom: 16px;
+}
+.ww-center-card p {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--ww-muted);
+  margin-bottom: 28px;
+}
+.ww-center-card .ww-btn-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ww-404-code {
+  font-family: var(--ww-mono);
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  font-weight: 700;
+  color: var(--ww-accent);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.ww-contact-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ww-mono);
+  font-size: 1.1rem;
+  color: var(--ww-text);
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line);
+  border-radius: 999px;
+  padding: 12px 24px;
+  margin-bottom: 28px;
+  text-decoration: none;
+}
+
+@media (max-width: 420px) {
+  .ww-legal {
+    padding: 32px 18px 60px;
+  }
+}

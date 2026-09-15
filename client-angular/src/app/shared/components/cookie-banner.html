@@ -1,0 +1,39 @@
+@if (consentService.visible()) {
+  <div class="ww-cookie-banner" role="dialog" aria-label="Preferencias de cookies">
+    <p>
+      Usamos cookies y almacenamiento local necesarios para que WordWars funcione (tu sesión de juego) y, si nos
+      das permiso, cookies analíticas para entender cómo se usa el sitio. Puedes leer más en nuestra
+      <a routerLink="/legal/cookies">Política de Cookies</a>.
+    </p>
+    <div class="ww-cookie-actions">
+      <button type="button" class="ww-btn ww-btn--ghost" (click)="togglePrefs()">Personalizar</button>
+      <button type="button" class="ww-btn ww-btn--ghost" (click)="reject()">Rechazar</button>
+      <button type="button" class="ww-btn ww-btn--primary" (click)="acceptAll()">Aceptar todas</button>
+    </div>
+    @if (prefsOpen()) {
+      <div class="ww-cookie-prefs">
+        <div class="ww-cookie-prefs-row">
+          <div>
+            <strong>Necesarias</strong>
+            <span>Sesión de juego e inicio de sesión. Siempre activas.</span>
+          </div>
+          <label class="ww-switch">
+            <input type="checkbox" checked disabled />
+            <span class="ww-switch-track"></span>
+          </label>
+        </div>
+        <div class="ww-cookie-prefs-row">
+          <div>
+            <strong>Analíticas</strong>
+            <span>Google Analytics: estadísticas de uso agregadas.</span>
+          </div>
+          <label class="ww-switch">
+            <input type="checkbox" [checked]="analyticsChecked()" (change)="setAnalyticsChecked($event)" />
+            <span class="ww-switch-track"></span>
+          </label>
+        </div>
+        <button type="button" class="ww-btn ww-btn--primary" (click)="savePrefs()">Guardar preferencias</button>
+      </div>
+    }
+  </div>
+}

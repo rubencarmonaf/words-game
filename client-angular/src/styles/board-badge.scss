@@ -1,0 +1,35 @@
+/* Insignia de "panel de estación" reutilizada en resultados, landing y lobby
+ * (ganador de partida, "Cada día a las 00:00", "Anfitrión"...) — vocabulario
+ * compartido, igual que back-btn.scss. */
+
+.board-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ww-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line-strong);
+  color: var(--ww-text);
+  font-variant-numeric: tabular-nums;
+}
+.board-badge--scarlet {
+  color: var(--line-scarlet);
+  border-color: rgba(204, 63, 82, 0.4);
+}
+.board-badge--amber {
+  color: var(--line-amber);
+  border-color: rgba(245, 166, 35, 0.4);
+}
+.board-badge--lime {
+  color: var(--line-lime);
+  border-color: rgba(95, 217, 122, 0.4);
+}
+.board-badge--cobalt {
+  color: var(--line-cobalt);
+  border-color: rgba(74, 144, 226, 0.4);
+}

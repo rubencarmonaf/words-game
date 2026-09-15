@@ -50,3 +50,51 @@
 .btn:active:not(:disabled) {
   transform: scale(0.97);
 }
+
+/* Botones de la landing y páginas estáticas — tratamiento propio (siempre en
+ * mayúsculas, con resplandor en el primario), distinto del de las pantallas
+ * de la app; usados tanto en <button> como en <a> con pinta de botón. */
+.ww-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ww-sans);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  padding: 11px 20px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+.ww-btn--lg {
+  padding: 15px 28px;
+  font-size: 0.98rem;
+}
+.ww-btn--primary {
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  box-shadow: 0 8px 24px rgba(245, 166, 35, 0.24);
+}
+.ww-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(245, 166, 35, 0.34);
+}
+.ww-btn--ghost {
+  background: rgba(178, 198, 224, 0.05);
+  color: var(--ww-text);
+  border-color: var(--ww-line-strong);
+}
+.ww-btn--ghost:hover {
+  background: rgba(178, 198, 224, 0.1);
+  border-color: rgba(178, 198, 224, 0.4);
+  transform: translateY(-2px);
+}
+.ww-btn:active {
+  transform: scale(0.97);
+}

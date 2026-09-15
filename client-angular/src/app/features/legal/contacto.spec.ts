@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Contacto } from './contacto';
 
 describe('Contacto', () => {
@@ -8,6 +9,7 @@ describe('Contacto', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Contacto],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Contacto);
@@ -17,5 +19,10 @@ describe('Contacto', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('offers a mailto link to reach out', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('a[href="mailto:rubencarmonaf@gmail.com"]')).toBeTruthy();
   });
 });
