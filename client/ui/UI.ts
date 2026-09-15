@@ -312,6 +312,12 @@ export class UI {
         this.applyAvatarSvg('user-avatar-chip', user.avatar);
         const name = document.getElementById('user-welcome');
         if (name) name.textContent = user.username;
+
+        const tier = eloTier(user.elo);
+        const badge = document.getElementById('menu-tier-badge');
+        if (badge) badge.className = `ww-tier-badge ww-tier-badge--${tier.key}`;
+        const tierName = document.getElementById('menu-tier-name');
+        if (tierName) tierName.textContent = tier.name;
     }
 
     showProfile(user: any): void {
