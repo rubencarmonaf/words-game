@@ -90,7 +90,14 @@ Rejected in the same pass: animating the per-second game timer (functional data,
 
 - **Identidad, no saludo**: `.user-info` in the menu header is now a clickable `.ww-id-chip` — a small `.ww-avatar` roundel plus the username in the serif display face — opening the new `#profile-screen`, not a sentence of copy.
 - **Avatar = a line + an icon, not a photo**: `avatarColor` (one of the four line colors) and `avatarIcon` (six SVG glyphs reused from the mode buttons, plus a new star) are new `User` model fields, picked freely by the player — deliberately not a photo upload, which would need new storage/validation infrastructure this world doesn't otherwise have. `.ww-avatar` is a single component (`--sm`/`--lg` size, `--cobalt/--scarlet/--amber/--lime` color) shared by the header chip and the profile page.
-- **Tier = real ELO, not invented XP**: the "carnet" reads a rank (Aprendiz/Viajero/Experto/Leyenda) straight from the existing ELO field via a client-side `eloTier()` lookup — no new stat invented for the sake of a progress bar. The tier colors are the same four line colors already carrying meaning elsewhere (mode pairing, avatar), extended here to mean "which line you ride" competitively; deliberately kept as a separate small pill+progress element rather than reusing the avatar's own circular shape, so the two don't visually compete over what a color means in that spot.
+- **Tier = real ELO, not invented XP**: the "carnet" reads a rank straight from the existing ELO field via a client-side `eloTier()` lookup — no new stat invented for the sake of a progress bar. The tier colors are the same four line colors already carrying meaning elsewhere (mode pairing, avatar), extended here to mean "which line you ride" competitively; deliberately kept as a separate small pill+progress element rather than reusing the avatar's own circular shape, so the two don't visually compete over what a color means in that spot. Bands are 300 ELO wide and anchored on the model's starting ELO (1200) so a brand-new player begins at the floor of the second tier, not mid-tier or skipping the first one entirely:
+
+  | Tier | ELO range | Color |
+  |---|---|---|
+  | Aprendiz | 0 – 1199 | cobalt |
+  | Viajero | 1200 – 1499 (starting tier) | lime |
+  | Experto | 1500 – 1799 | amber |
+  | Leyenda | 1800+ | scarlet |
 - **Stat cards**: the same ELO/Partidas/Victorias/% Victorias numbers that used to sit in a flat box on the menu, now icon-labeled cards on the profile page; the menu's old `.user-stats` block was removed rather than duplicated.
 - **Editar perfil**: a `PUT /api/profile` route (username + avatarColor + avatarIcon, auth required, username uniqueness re-checked server-side) backs an inline edit form with live avatar preview as color/icon swatches are picked.
 - One real detector-caught bug fixed during build: the tier progress bar originally animated `width` (`layout-transition` finding, flagged with a real file/line) — switched to the codebase's existing `transform: scaleX(var(--fill))` technique (same one the landing's route-panel arrival already uses) instead of inventing a new pattern.

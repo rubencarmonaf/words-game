@@ -28,11 +28,13 @@ function avatarSvg(icon: string): string {
 
 // Los tiers de ELO son la fuente del "nivel" del carnet de perfil — ningún dato inventado,
 // reutilizan el mismo significado de color de línea que ya tienen los modos de juego.
+// Bandas de 300 ELO, alineadas con el ELO inicial (1200 = arranque de Viajero): un jugador
+// nuevo empieza ahí y solo cae a Aprendiz si pierde más partidas de las que gana.
 const ELO_TIERS = [
-    { key: 'cobalt', name: 'Aprendiz', min: 0, max: 1100 },
-    { key: 'lime', name: 'Viajero', min: 1100, max: 1400 },
-    { key: 'amber', name: 'Experto', min: 1400, max: 1700 },
-    { key: 'scarlet', name: 'Leyenda', min: 1700, max: null as number | null }
+    { key: 'cobalt', name: 'Aprendiz', min: 0, max: 1200 },
+    { key: 'lime', name: 'Viajero', min: 1200, max: 1500 },
+    { key: 'amber', name: 'Experto', min: 1500, max: 1800 },
+    { key: 'scarlet', name: 'Leyenda', min: 1800, max: null as number | null }
 ];
 
 function eloTier(elo: number) {
