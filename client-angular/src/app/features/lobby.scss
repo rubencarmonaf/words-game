@@ -1,0 +1,191 @@
+:host {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px;
+}
+
+.lobby-content {
+  width: 100%;
+  max-width: 1000px;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: var(--ww-radius);
+  padding: 40px;
+  color: var(--ww-text);
+}
+
+header {
+  position: relative;
+  text-align: center;
+  padding-top: 50px;
+  margin-bottom: 30px;
+}
+.back-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.lobby-header h1 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+}
+.lobby-info-header {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  color: var(--ww-muted);
+  font-size: 1rem;
+}
+
+.lobby-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.lobby-players-section h2,
+.invite-section h2 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin-bottom: 18px;
+}
+
+.lobby-players-list,
+.friends-to-invite {
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line);
+  border-radius: 15px;
+  padding: 18px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.lobby-player,
+.friend-to-invite {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s ease;
+}
+.lobby-player:hover,
+.friend-to-invite:hover {
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.7);
+}
+.lobby-player:last-child,
+.friend-to-invite:last-child {
+  margin-bottom: 0;
+}
+.lobby-player.host {
+  background: rgba(245, 166, 35, 0.08);
+  border-color: rgba(245, 166, 35, 0.25);
+}
+
+.player-info,
+.friend-to-invite-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.player-name,
+.friend-to-invite-username {
+  font-weight: 700;
+}
+
+.friend-to-invite-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+.friend-to-invite-status.online {
+  color: var(--line-lime);
+}
+.friend-to-invite-status.offline {
+  color: var(--ww-muted);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-dot.online {
+  background: var(--line-lime);
+}
+.status-dot.offline {
+  background: var(--ww-faint);
+}
+
+.no-friends-to-invite {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ww-muted);
+}
+.no-friends-to-invite p {
+  margin: 5px 0;
+}
+
+.invite-btn {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.invite-btn:hover:not(:disabled) {
+  background: #ffb84d;
+}
+.invite-btn.invited {
+  background: var(--line-lime);
+  color: var(--ww-accent-ink);
+}
+.invite-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lobby-controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.lobby-actions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lobby-actions-section .btn {
+  padding: 15px 30px;
+  font-size: 1rem;
+}
+.lobby-actions-section .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .lobby-main {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .lobby-controls-section {
+    order: -1;
+  }
+  .lobby-info-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

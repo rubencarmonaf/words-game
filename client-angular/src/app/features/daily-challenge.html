@@ -1,1 +1,80 @@
-<p>daily-challenge works!</p>
+<div class="daily-challenge-content">
+  <header>
+    <button type="button" class="back-btn" routerLink="/menu">Volver</button>
+    <div class="logo-container">
+      <img src="/assets/logo.png" alt="WordWars Logo" class="logo-image" />
+    </div>
+    <h1>Reto diario</h1>
+    <p>Forma el máximo de palabras en 2 minutos</p>
+  </header>
+
+  <div class="daily-challenge-info">
+    <div class="challenge-prefix">
+      <h2>Prefijo de hoy: <span>{{ prefix() || 'cargando...' }}</span></h2>
+    </div>
+    <div class="challenge-timer">
+      <div class="timer-circle">
+        <span>{{ timerDisplay() }}</span>
+      </div>
+    </div>
+    <div class="challenge-stats">
+      <div class="stat">
+        <span class="stat-label">Palabras encontradas:</span>
+        <span class="stat-value">{{ words().length }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ww-game-rail" aria-hidden="true"><span class="ww-game-rail-dot"></span></div>
+
+  @if (isCompleted()) {
+    <div class="daily-completed-message">
+      <h3>¡Reto completado!</h3>
+      <p>Ya completaste el reto de hoy con {{ words().length }} palabras:</p>
+      <div class="completed-words">
+        @for (word of words(); track word) {
+          <span class="completed-word">{{ word }}</span>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="daily-game-area">
+      <div class="word-input-section">
+        <input
+          type="text"
+          [formControl]="wordControl"
+          [class.word-input--shake]="shakeWord()"
+          [disabled]="!isActive() || submitting()"
+          placeholder="Escribe una palabra..."
+          autocomplete="off"
+          (keydown.enter)="submit()"
+        />
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!isActive() || submitting()"
+          (click)="submit()"
+        >
+          Enviar
+        </button>
+      </div>
+
+      <div class="words-display">
+        <h3>Palabras encontradas:</h3>
+        <div class="words-list">
+          @for (word of words(); track word) {
+            <div class="word-item word-item--enter">{{ word }}</div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="daily-challenge-actions">
+      @if (!isActive()) {
+        <button type="button" class="btn btn-primary" (click)="start()">Comenzar Reto</button>
+      } @else {
+        <button type="button" class="btn btn-secondary" (click)="end()">Terminar</button>
+      }
+    </div>
+  }
+</div>
