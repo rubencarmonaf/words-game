@@ -1,1 +1,4 @@
-<p>menu works!</p>
+<!-- Fase 2 (auth): placeholder mínimo para verificar login -> /menu.
+     El menú real (modos de juego, amigos, chip de identidad) llega en la Fase 3. -->
+<h1>menu works! Hola, {{ user()?.username }}</h1>
+<button type="button" class="btn btn-secondary" (click)="logout()">Cerrar sesión</button>

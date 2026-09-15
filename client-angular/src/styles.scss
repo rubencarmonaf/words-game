@@ -1,5 +1,7 @@
 @use './styles/tokens';
 @use './styles/reset';
+@use './styles/forms';
+@use './styles/buttons';
 
 body {
   font-family: var(--ww-sans);
