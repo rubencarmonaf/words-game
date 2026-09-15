@@ -1,0 +1,55 @@
+<div class="ww-avatar-editor">
+  <div class="ww-avatar-editor-tabs" role="tablist">
+    @for (group of groups; track group.key) {
+      <button
+        type="button"
+        class="ww-avatar-tab"
+        [class.selected]="group.key === activeGroupKey()"
+        (click)="selectGroup(group.key)"
+      >
+        {{ group.label }}
+      </button>
+    }
+  </div>
+
+  <div class="ww-avatar-editor-content">
+    @for (category of activeFields(); track category.field) {
+      <div class="ww-avatar-section">
+        <p class="ww-avatar-section-label">{{ category.label }}</p>
+
+        @if (category.kind === 'color') {
+          <div class="ww-avatar-swatch-grid">
+            @for (opt of category.options; track opt) {
+              <button
+                type="button"
+                class="ww-avatar-swatch"
+                [class.selected]="value()[category.field] === opt"
+                [style.background]="'#' + opt"
+                [attr.aria-label]="'Color ' + opt"
+                (click)="select(category.field, opt)"
+              ></button>
+            }
+          </div>
+        } @else {
+          <div class="ww-avatar-thumb-grid">
+            @for (opt of category.options; track opt) {
+              <button
+                type="button"
+                class="ww-avatar-thumb"
+                [class.selected]="value()[category.field] === opt"
+                [attr.aria-label]="opt === '' ? (category.noneLabel ?? 'Ninguno') : opt"
+                (click)="select(category.field, opt)"
+              >
+                @if (opt === '') {
+                  <span class="ww-avatar-thumb-none">{{ category.noneLabel ?? 'Ninguno' }}</span>
+                } @else {
+                  <span [innerHTML]="previewSvg(category.field, opt)"></span>
+                }
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

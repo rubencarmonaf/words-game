@@ -1,1 +1,80 @@
-<p>profile works!</p>
+<div class="profile-content">
+  <header>
+    <button type="button" class="back-btn" routerLink="/menu">Volver</button>
+  </header>
+
+  @if (user(); as u) {
+    <div class="ww-profile-header">
+      <ww-avatar [options]="displayedAvatar()" size="lg" />
+      <div class="ww-profile-id">
+        <h1>{{ u.username }}</h1>
+        <div class="ww-tier-badge ww-tier-badge--{{ tier().key }}">
+          <span class="ww-tier-dot"></span>
+          <span>{{ tier().name }}</span>
+        </div>
+        <div class="ww-tier-progress">
+          <div class="ww-tier-progress-bar" [style.--fill]="tierProgress().fill"></div>
+        </div>
+        <p class="ww-tier-progress-label">{{ tierProgress().label }}</p>
+      </div>
+      @if (!editing()) {
+        <button type="button" class="btn btn-secondary" (click)="startEdit()">Editar perfil</button>
+      }
+    </div>
+
+    <div class="ww-stat-cards">
+      <div class="ww-stat-card">
+        <span class="ww-stat-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+        </span>
+        <span class="ww-stat-card-value">{{ u.elo }}</span>
+        <span class="ww-stat-card-label">ELO</span>
+      </div>
+      <div class="ww-stat-card">
+        <span class="ww-stat-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.4" /></svg>
+        </span>
+        <span class="ww-stat-card-value">{{ u.gamesPlayed }}</span>
+        <span class="ww-stat-card-label">Partidas</span>
+      </div>
+      <div class="ww-stat-card">
+        <span class="ww-stat-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+        </span>
+        <span class="ww-stat-card-value">{{ u.gamesWon }}</span>
+        <span class="ww-stat-card-label">Victorias</span>
+      </div>
+      <div class="ww-stat-card">
+        <span class="ww-stat-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>
+        </span>
+        <span class="ww-stat-card-value">{{ u.winRate.toFixed(1) }}%</span>
+        <span class="ww-stat-card-label">% Victorias</span>
+      </div>
+    </div>
+
+    @if (editing()) {
+      <form class="ww-profile-edit" [formGroup]="form" (ngSubmit)="save()">
+        <div class="input-group" [class.has-error]="form.controls.username.invalid && form.controls.username.touched">
+          <label for="profile-username-input">Nombre de usuario</label>
+          <input type="text" id="profile-username-input" formControlName="username" autocomplete="off" />
+          @if (form.controls.username.touched && form.controls.username.hasError('required')) {
+            <span class="field-error">Introduce un nombre de usuario</span>
+          } @else if (form.controls.username.touched && (form.controls.username.hasError('minlength') || form.controls.username.hasError('maxlength'))) {
+            <span class="field-error">Debe tener entre 3 y 20 caracteres</span>
+          }
+        </div>
+
+        <label>Personalizar avatar</label>
+        <ww-avatar-editor [(value)]="draftAvatar" />
+
+        <div class="ww-profile-edit-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="saving()">
+            {{ saving() ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancelar</button>
+        </div>
+      </form>
+    }
+  }
+</div>
