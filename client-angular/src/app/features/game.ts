@@ -1,9 +1,78 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Game as GameService } from '../core/services/game';
+import { Toast } from '../shared/services/toast';
 
 @Component({
-  imports: [],
   selector: 'ww-game',
+  imports: [ReactiveFormsModule],
   styleUrl: './game.scss',
   templateUrl: './game.html',
 })
-export class Game {}
+export class Game implements OnInit {
+  protected readonly game = inject(GameService);
+  private readonly router = inject(Router);
+  private readonly toast = inject(Toast);
+
+  protected readonly wordControl = new FormControl('', { nonNullable: true });
+  protected readonly submitting = signal(false);
+  protected readonly shakeWord = signal(false);
+
+  protected readonly prefixDisplay = computed(() => this.game.prefix().toUpperCase());
+  protected readonly wordCountDisplay = computed(() => `Palabras: ${this.game.words().length}`);
+
+  protected readonly timerDisplay = computed(() => {
+    const t = this.game.timeRemaining();
+    if (t === -1) return '∞';
+    const minutes = Math.floor(t / 60);
+    const seconds = t % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  });
+  protected readonly timerWarning = computed(() => {
+    const t = this.game.timeRemaining();
+    return t !== -1 && t <= 30;
+  });
+  protected readonly timerDanger = computed(() => {
+    const t = this.game.timeRemaining();
+    return t !== -1 && t <= 10;
+  });
+
+  ngOnInit(): void {
+    if (this.game.status() !== 'active') {
+      this.router.navigateByUrl('/menu');
+    }
+  }
+
+  protected async submit(): Promise<void> {
+    const word = this.wordControl.value;
+    if (!word.trim()) return;
+
+    this.submitting.set(true);
+    const result = await this.game.submitWord(word);
+    this.submitting.set(false);
+
+    if (result.success) {
+      if (result.message) this.toast.show(result.message, 'success');
+      this.wordControl.setValue('');
+    } else {
+      if (result.message) {
+        this.toast.show(result.message, 'error');
+        this.flashWordError();
+      }
+    }
+  }
+
+  protected endGame(): void {
+    this.game.end();
+    this.router.navigateByUrl('/play/results');
+  }
+
+  private flashWordError(): void {
+    this.shakeWord.set(false);
+    setTimeout(() => {
+      this.shakeWord.set(true);
+      setTimeout(() => this.shakeWord.set(false), 900);
+    });
+  }
+}

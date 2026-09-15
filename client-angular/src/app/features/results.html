@@ -1,1 +1,67 @@
-<p>results works!</p>
+<div class="results-content">
+  <h2>Resultados</h2>
+
+  @if (won()) {
+    <div class="ww-victory" aria-hidden="true">
+      <div class="ww-victory-track">
+        <svg class="ww-victory-line" viewBox="0 0 320 56" preserveAspectRatio="none">
+          <path class="ww-victory-path" d="M0,30 C90,30 108,8 160,8 S 232,30 320,30" />
+        </svg>
+        <span class="ww-victory-roundel" [class.ww-victory-roundel--lit]="roundelLit()">✓</span>
+      </div>
+      <div class="ww-victory-score">
+        @for (digit of digits(); track $index; let i = $index) {
+          <span class="ww-flap">
+            <span
+              class="ww-flap-strip"
+              [style.transform]="i < revealedCount() ? 'translateY(-' + digit * 10 + '%)' : 'translateY(0)'"
+            >
+              @for (cell of flapCells; track cell) {
+                <span class="ww-flap-cell">{{ cell }}</span>
+              }
+            </span>
+          </span>
+        }
+        <span class="ww-victory-unit">palabras</span>
+      </div>
+      <div class="ww-victory-particles">
+        @for (p of particles(); track $index) {
+          <span
+            class="ww-victory-particle ww-victory-particle--{{ p.shape }} ww-victory-particle--{{ p.color }}"
+            [style.--dx]="p.dx + 'px'"
+            [style.--dy]="p.dy + 'px'"
+            [style.--delay]="p.delay + 'ms'"
+          ></span>
+        }
+      </div>
+    </div>
+  }
+
+  <div id="results-display">
+    @if (outcome(); as o) {
+      @if (o.results.type === 'solo') {
+        <div class="player-result">
+          <span class="player-name">¡Excelente trabajo!</span>
+          <span class="player-score">{{ o.results.totalWords }} palabras</span>
+        </div>
+      } @else {
+        @for (player of o.results.players; track player.id; let i = $index) {
+          <div class="player-result" [class.winner]="i === 0">
+            <span class="player-name">
+              @if (i === 0) {
+                <span class="board-badge board-badge--amber">Ganador</span>
+              }
+              {{ player.username }}
+            </span>
+            <span class="player-score">{{ player.score }} palabras</span>
+          </div>
+        }
+      }
+    }
+  </div>
+
+  <div class="button-group">
+    <button type="button" class="btn btn-primary" (click)="playAgain()">Jugar de Nuevo</button>
+    <button type="button" class="btn btn-secondary" routerLink="/menu">Nuevo Juego</button>
+  </div>
+</div>
