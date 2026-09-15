@@ -27,7 +27,8 @@ import {
   MatchmakingPlayer,
   AuthenticatedSocket,
   SocketEvents,
-  DailyChallengeResponse
+  DailyChallengeResponse,
+  sanitizeAvatarOptions
 } from './types';
 
 dotenv.config();
@@ -369,9 +370,7 @@ app.get('/api/profile', authenticateToken, async (req: any, res) => {
 // Actualizar perfil: nombre de usuario y/o personalización del avatar
 app.put('/api/profile', authenticateToken, async (req: any, res) => {
   try {
-    const { username, avatarColor, avatarIcon } = req.body;
-    const validColors = ['cobalt', 'scarlet', 'amber', 'lime'];
-    const validIcons = ['target', 'link', 'bolt', 'users', 'flame', 'star'];
+    const { username, avatar } = req.body;
 
     const user = await User.findById(req.user.userId);
     if (!user) {
@@ -395,20 +394,11 @@ app.put('/api/profile', authenticateToken, async (req: any, res) => {
       }
     }
 
-    if (avatarColor !== undefined) {
-      if (!validColors.includes(avatarColor)) {
-        res.status(400).json({ success: false, message: 'Color de avatar no válido' });
-        return;
-      }
-      user.avatarColor = avatarColor;
-    }
-
-    if (avatarIcon !== undefined) {
-      if (!validIcons.includes(avatarIcon)) {
-        res.status(400).json({ success: false, message: 'Icono de avatar no válido' });
-        return;
-      }
-      user.avatarIcon = avatarIcon;
+    if (avatar !== undefined) {
+      // sanitizeAvatarOptions descarta cualquier campo/valor fuera de las listas
+      // permitidas y rellena el resto con los valores por defecto — nunca falla,
+      // así que el cliente siempre recibe de vuelta un avatar completo y válido
+      user.avatar = sanitizeAvatarOptions(avatar);
     }
 
     await user.save();

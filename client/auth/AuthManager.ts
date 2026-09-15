@@ -1,4 +1,4 @@
-import { ApiResponse, AuthResponse, IUserPublic } from '../../src/types';
+import { ApiResponse, AuthResponse, IUserPublic, AvatarOptions } from '../../src/types';
 
 export class AuthManager {
     private token: string | null = null;
@@ -133,7 +133,7 @@ export class AuthManager {
         return this.makeRequest<IUserPublic>('/profile');
     }
 
-    async updateProfile(updates: { username?: string; avatarColor?: string; avatarIcon?: string }): Promise<ApiResponse<IUserPublic>> {
+    async updateProfile(updates: { username?: string; avatar?: AvatarOptions }): Promise<ApiResponse<IUserPublic>> {
         return this.makeRequest<IUserPublic>('/profile', {
             method: 'PUT',
             body: JSON.stringify(updates)
