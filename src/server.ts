@@ -635,6 +635,105 @@ app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, re
   }
 });
 
+// ---------- Partidas Versus (1v1 arbitradas por el servidor) ----------
+const VERSUS_PREFIXES = ['de', 'con', 'pre', 'ex', 'in', 'ca', 'ma', 'pa', 'ba', 'to', 'ver', 'sal', 'fin', 'mar', 'sol', 'cor', 'ter', 'res'];
+const VERSUS_DURATION_MS = 5 * 60 * 1000;
+
+// Socket activo por usuario autenticado (independiente de la cola de matchmaking,
+// para poder localizar a un jugador durante toda la vida de una partida)
+const userSockets = new Map<string, string>();
+
+// Partidas versus en curso: el documento Game vive en memoria durante la partida
+// y se persiste en cada palabra/al terminar, evitando una relectura por jugada
+const activeGames = new Map<string, { gameDoc: any; timer: NodeJS.Timeout }>();
+
+async function startVersusGame(gameId: string, player1: MatchmakingPlayer, player2: MatchmakingPlayer): Promise<void> {
+  const prefix = VERSUS_PREFIXES[Math.floor(Math.random() * VERSUS_PREFIXES.length)];
+
+  const gameDoc = new (Game as any)({
+    gameId,
+    players: [
+      { userId: player1.userId, username: player1.username, words: [], score: 0 },
+      { userId: player2.userId, username: player2.username, words: [], score: 0 }
+    ],
+    prefix,
+    gameType: 'versus',
+    duration: VERSUS_DURATION_MS / 1000
+  });
+  gameDoc.start();
+  await gameDoc.save();
+
+  const timer = setTimeout(() => { finishVersusGame(gameId, 'timeout'); }, VERSUS_DURATION_MS);
+  activeGames.set(gameId, { gameDoc, timer });
+
+  const startPayload = {
+    gameId,
+    prefix,
+    players: [
+      { userId: player1.userId, username: player1.username },
+      { userId: player2.userId, username: player2.username }
+    ]
+  };
+
+  const socket1 = userSockets.get(player1.userId);
+  const socket2 = userSockets.get(player2.userId);
+  if (socket1) io.to(socket1).emit('gameStart', startPayload);
+  if (socket2) io.to(socket2).emit('gameStart', startPayload);
+}
+
+async function finishVersusGame(gameId: string, reason: 'timeout' | 'forfeit', forfeitedBy?: string): Promise<void> {
+  const active = activeGames.get(gameId);
+  if (!active) return;
+  activeGames.delete(gameId);
+  clearTimeout(active.timer);
+
+  const { gameDoc } = active;
+  const [p1, p2] = gameDoc.players;
+
+  let winnerId: string | null;
+  if (reason === 'forfeit' && forfeitedBy) {
+    winnerId = p1.userId === forfeitedBy ? p2.userId : p1.userId;
+  } else if (p1.score === p2.score) {
+    winnerId = null; // empate: sin cambio de ELO para nadie
+  } else {
+    winnerId = p1.score > p2.score ? p1.userId : p2.userId;
+  }
+
+  gameDoc.end(winnerId || undefined);
+  await gameDoc.save();
+
+  if (winnerId) {
+    const loserId = p1.userId === winnerId ? p2.userId : p1.userId;
+    const winnerUser = await User.findById(winnerId);
+    const loserUser = await User.findById(loserId);
+    if (winnerUser && loserUser) {
+      const winnerEloBefore = winnerUser.elo;
+      const loserEloBefore = loserUser.elo;
+      winnerUser.updateElo(loserEloBefore, true);
+      loserUser.updateElo(winnerEloBefore, false);
+      await winnerUser.save();
+      await loserUser.save();
+    }
+  }
+
+  const winnerUsername = winnerId ? (p1.userId === winnerId ? p1.username : p2.username) : null;
+  const finalScores = [p1, p2]
+    .slice()
+    .sort((a: any, b: any) => b.score - a.score)
+    .map((p: any) => ({ username: p.username, score: p.score }));
+
+  for (const p of [p1, p2]) {
+    const socketId = userSockets.get(p.userId);
+    if (socketId) {
+      io.to(socketId).emit('gameEnd', {
+        winner: winnerUsername,
+        finalScores,
+        won: winnerId === p.userId
+      });
+    }
+  }
+}
+
 // Socket.io for real-time gameplay
 io.on('connection', (socket) => {
   console.log('Usuario conectado:', socket.id);
@@ -644,7 +743,8 @@ io.on('connection', (socket) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string; username: string };
       (socket as any).userId = decoded.userId;
       (socket as any).username = decoded.username;
-      
+      userSockets.set(decoded.userId, socket.id);
+
       // Update matchmaking queue with socket ID
       if (matchmakingQueue.has(decoded.userId)) {
         const player = matchmakingQueue.get(decoded.userId)!;
@@ -656,10 +756,69 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Palabra enviada en una partida versus: el servidor valida, retransmite a
+  // ambos jugadores y es la única fuente de verdad del marcador
+  socket.on('submitWord', async (data: { gameId: string; word: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId) return;
+
+    const active = activeGames.get(data?.gameId);
+    if (!active) {
+      socket.emit('error', 'Esta partida ya no está activa');
+      return;
+    }
+
+    const { gameDoc } = active;
+    const word = String(data.word || '').toLowerCase().trim();
+
+    if (!word || !word.startsWith(gameDoc.prefix.toLowerCase())) {
+      socket.emit('wordRejected', { message: `La palabra debe empezar con "${gameDoc.prefix}"` });
+      return;
+    }
+    if (gameDoc.allWords.includes(word)) {
+      socket.emit('wordRejected', { message: 'Ya se ha usado esta palabra' });
+      return;
+    }
+
+    const isValid = await dictionaryService.validateWord(word);
+    if (!isValid) {
+      socket.emit('wordRejected', { message: 'Palabra no válida en el diccionario español' });
+      return;
+    }
+
+    const added = gameDoc.addWord(word, authSocket.userId);
+    if (!added) {
+      socket.emit('wordRejected', { message: 'Palabra no válida' });
+      return;
+    }
+    await gameDoc.save();
+
+    const player = gameDoc.players.find((p: any) => p.userId === authSocket.userId);
+    const payload = { word, playerId: authSocket.userId, score: player?.score || 0 };
+    for (const p of gameDoc.players) {
+      const socketId = userSockets.get(p.userId);
+      if (socketId) io.to(socketId).emit('wordSubmitted', payload);
+    }
+  });
+
+  // Abandono voluntario de una partida versus en curso: cuenta como derrota
+  socket.on('forfeitGame', (data: { gameId: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.gameId) return;
+    finishVersusGame(data.gameId, 'forfeit', authSocket.userId);
+  });
+
   socket.on('disconnect', () => {
     const authSocket = socket as any;
     if (authSocket.userId) {
       matchmakingQueue.delete(authSocket.userId);
+      userSockets.delete(authSocket.userId);
+
+      for (const [gameId, active] of activeGames) {
+        if (active.gameDoc.players.some((p: any) => p.userId === authSocket.userId)) {
+          finishVersusGame(gameId, 'forfeit', authSocket.userId);
+        }
+      }
     }
   });
 });
@@ -667,29 +826,42 @@ io.on('connection', (socket) => {
 // Matchmaking logic
 setInterval(() => {
   const players = Array.from(matchmakingQueue.values());
-  
+
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
       const player1 = players[i];
       const player2 = players[j];
-      
+
+      // Un jugador ya emparejado en una vuelta anterior de este mismo tick
+      // sigue en el snapshot `players` aunque ya no esté en la cola real
+      if (!matchmakingQueue.has(player1.userId) || !matchmakingQueue.has(player2.userId)) {
+        continue;
+      }
+
       // Check if ELO difference is acceptable (within 200 points)
       if (Math.abs(player1.elo - player2.elo) <= 200) {
         // Create match
         const gameId = new mongoose.Types.ObjectId().toString();
-        
+
         // Remove from queue
         matchmakingQueue.delete(player1.userId);
         matchmakingQueue.delete(player2.userId);
-        
-        // Notify players
-        if (player1.socketId) {
-          io.to(player1.socketId).emit('matchFound', { gameId, opponent: player2.username });
+
+        // Notify players — se busca el socket vivo en userSockets en vez de fiarse
+        // del socketId guardado en la cola, que puede quedar obsoleto si el socket
+        // se autentica antes de que el POST /matchmaking/join termine de guardarlo
+        const socket1 = userSockets.get(player1.userId) || player1.socketId;
+        const socket2 = userSockets.get(player2.userId) || player2.socketId;
+        if (socket1) {
+          io.to(socket1).emit('matchFound', { gameId, opponent: player2.username });
         }
-        if (player2.socketId) {
-          io.to(player2.socketId).emit('matchFound', { gameId, opponent: player1.username });
+        if (socket2) {
+          io.to(socket2).emit('matchFound', { gameId, opponent: player1.username });
         }
-        
+
+        // Pequeña pausa antes de arrancar la partida para que se vea el aviso de emparejamiento
+        setTimeout(() => { startVersusGame(gameId, player1, player2); }, 1500);
+
         break;
       }
     }

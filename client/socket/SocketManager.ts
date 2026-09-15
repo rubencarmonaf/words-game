@@ -5,7 +5,8 @@ export interface SocketEvents {
     matchFound: (data: { gameId: string; opponent: string }) => void;
     gameStart: (data: { gameId: string; prefix: string; players: any[] }) => void;
     wordSubmitted: (data: { word: string; playerId: string; score: number }) => void;
-    gameEnd: (data: { winner: string; finalScores: any[] }) => void;
+    wordRejected: (data: { message: string }) => void;
+    gameEnd: (data: { winner: string | null; finalScores: any[]; won: boolean }) => void;
     error: (message: string) => void;
 }
 
@@ -79,6 +80,10 @@ export class SocketManager {
 
         this.socket.on('wordSubmitted', (data) => {
             this.emitLocal('wordSubmitted', data);
+        });
+
+        this.socket.on('wordRejected', (data) => {
+            this.emitLocal('wordRejected', data);
         });
 
         this.socket.on('gameEnd', (data) => {

@@ -19,6 +19,7 @@ export class WordGame {
     private socketManager: SocketManager;
     private gameState: GameState;
     private gameTimer: number | null = null;
+    private localUserId: string | null = null;
 
     constructor(authManager: AuthManager, ui: UI, socketManager: SocketManager) {
         this.authManager = authManager;
@@ -47,6 +48,12 @@ export class WordGame {
 
         this.socketManager.on('wordSubmitted', (data) => {
             this.handleWordSubmitted(data);
+        });
+
+        this.socketManager.on('wordRejected', (data: { message: string }) => {
+            this.ui.showMessage(data.message, 'error');
+            this.ui.flashInputError('word-input');
+            this.ui.setLoading(false);
         });
 
         this.socketManager.on('gameEnd', (data) => {
@@ -104,12 +111,13 @@ export class WordGame {
         await this.clearDictionaryCache();
         
         this.startGameTimer();
-        this.ui.showGame();
+        this.ui.showGame(this.gameState.mode);
         this.ui.clearWordInput();
     }
 
     private startMatchmaking(): void {
         this.gameState.status = 'matchmaking';
+        this.localUserId = this.authManager.getUserId();
         this.ui.showMatchmaking();
         
         this.authManager.joinMatchmaking().then(result => {
@@ -136,20 +144,39 @@ export class WordGame {
         
         // Clear dictionary cache and game words for new game
         await this.clearDictionaryCache();
-        
+
         this.startGameTimer();
-        this.ui.showGame();
+        this.ui.showGame(this.gameState.mode);
         this.ui.clearWordInput();
     }
 
     private handleWordSubmitted(data: { word: string; playerId: string; score: number }): void {
-        // Update UI with submitted word
-        this.updateWordsDisplay();
+        const player = this.gameState.players.find((p: any) => p.userId === data.playerId);
+        if (player) {
+            player.words = player.words || [];
+            player.words.push(data.word.toLowerCase());
+            player.score = data.score;
+        }
+
+        if (data.playerId === this.localUserId) {
+            this.gameState.words.push(data.word.toLowerCase());
+            this.ui.showMessage(`¡"${data.word}" agregada!`, 'success');
+            this.ui.clearWordInput();
+            this.ui.setLoading(false);
+            this.updateWordsDisplay();
+        } else {
+            this.ui.showMessage(`Tu rival añadió "${data.word}"`, 'info');
+            this.ui.updateOpponentScore(data.score);
+        }
     }
 
-    private handleGameEnd(data: { winner: string; finalScores: any[] }): void {
-        this.endGame();
-        this.showResults(data.finalScores);
+    private handleGameEnd(data: { winner: string | null; finalScores: any[]; won: boolean }): void {
+        if (this.gameTimer) {
+            clearInterval(this.gameTimer);
+            this.gameTimer = null;
+        }
+        this.gameState.status = 'finished';
+        this.showResults({ type: 'multiplayer', players: data.finalScores }, data.won);
     }
 
     async submitWord(): Promise<void> {
@@ -168,6 +195,14 @@ export class WordGame {
         if (this.gameState.words.includes(word.toLowerCase())) {
             this.ui.showMessage('Ya has usado esta palabra', 'error');
             this.ui.flashInputError('word-input');
+            return;
+        }
+
+        if (this.gameState.mode === 'versus') {
+            // Partida arbitrada por el servidor: se envía por socket y se espera
+            // wordSubmitted/wordRejected en vez de validar contra el REST local
+            this.ui.setLoading(true);
+            this.socketManager.emit('submitWord', { gameId: this.gameState.gameId, word });
             return;
         }
 
@@ -241,7 +276,14 @@ export class WordGame {
             );
 
             if (this.gameState.timeRemaining <= 0) {
-                this.endGame();
+                if (this.gameState.mode === 'versus') {
+                    // El servidor es quien decide el final real (su propio timeout
+                    // corre en paralelo); aquí solo se congela el contador visible.
+                    clearInterval(this.gameTimer!);
+                    this.gameTimer = null;
+                } else {
+                    this.endGame();
+                }
             }
         }, 1000);
     }
@@ -273,8 +315,18 @@ export class WordGame {
             this.gameTimer = null;
         }
 
+        if (this.gameState.mode === 'versus') {
+            // Abandono voluntario: el servidor decide el resultado (derrota para
+            // quien abandona) y llega por el evento gameEnd, no localmente.
+            if (this.gameState.gameId) {
+                this.socketManager.emit('forfeitGame', { gameId: this.gameState.gameId });
+            }
+            this.gameState.status = 'finished';
+            return;
+        }
+
         this.gameState.status = 'finished';
-        
+
         if (this.gameState.mode === 'solo') {
             this.showResults({
                 type: 'solo',

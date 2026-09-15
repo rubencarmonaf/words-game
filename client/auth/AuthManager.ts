@@ -21,6 +21,18 @@ export class AuthManager {
         return this.token;
     }
 
+    // Lee el userId del payload del JWT sin verificar la firma — solo para uso
+    // en UI local (saber "cuál soy yo" en una partida), nunca para autorización.
+    getUserId(): string | null {
+        if (!this.token) return null;
+        try {
+            const payload = JSON.parse(atob(this.token.split('.')[1]));
+            return payload.userId || null;
+        } catch {
+            return null;
+        }
+    }
+
     isAuthenticated(): boolean {
         return this.token !== null;
     }
