@@ -2772,6 +2772,11 @@ body::before {
 }
 
 .profile-content { max-width: 760px; padding: 40px; }
+.profile-content > header {
+    position: relative;
+    height: 38px;
+    margin-bottom: 14px;
+}
 
 .ww-profile-header {
     display: flex;
@@ -2780,7 +2785,6 @@ body::before {
     flex-wrap: wrap;
     padding-bottom: 28px;
     margin-bottom: 28px;
-    margin-top: 12px;
     border-bottom: 1px solid var(--ww-line);
 }
 .ww-profile-id { flex: 1; min-width: 200px; }
