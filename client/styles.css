@@ -2251,6 +2251,20 @@ body {
     color: var(--ww-text);
 }
 
+/* Retícula de plano detrás de toda la app — el mismo plano de red de la landing,
+   mucho más discreta, para que ninguna pantalla se sienta como un fondo vacío. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(178, 198, 224, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(178, 198, 224, 0.035) 1px, transparent 1px);
+    background-size: 64px 64px;
+}
+
 /* ---------- Botones (global app) ---------- */
 .btn {
     text-transform: uppercase;
@@ -2516,6 +2530,35 @@ body {
     border: 1px solid var(--ww-line);
 }
 .game-stats { color: var(--ww-muted); }
+
+/* Riel ambiental: un tren avanzando mientras la partida está en curso —
+   la única señal de "algo pasa" en las pantallas de juego/reto diario. */
+.ww-game-rail {
+    position: relative;
+    height: 2px;
+    margin: 14px 0 20px;
+    background: var(--ww-line);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.ww-game-rail-dot {
+    position: absolute;
+    top: 50%;
+    left: -8px;
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: var(--ww-accent);
+    animation: ww-game-rail-travel 6s linear infinite;
+}
+@keyframes ww-game-rail-travel {
+    0%   { left: -8px; }
+    100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ww-game-rail-dot { animation: none; left: 50%; }
+}
 #words-list .word-item {
     position: relative;
     background: rgba(245, 166, 35, 0.08);
