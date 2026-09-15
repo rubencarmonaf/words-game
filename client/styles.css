@@ -1190,21 +1190,6 @@ body {
     color: #333;
 }
 
-.loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
 /* Game Screen */
 .game-header {
     background: white;
@@ -1684,7 +1669,7 @@ body {
     border-radius: 8px;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: transform 0.18s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     white-space: nowrap;
 }
 .ww-btn--lg { padding: 15px 28px; font-size: 0.98rem; }
@@ -1709,6 +1694,7 @@ body {
     border-color: rgba(178, 198, 224, 0.4);
     transform: translateY(-2px);
 }
+.ww-btn:active { transform: scale(0.97); }
 
 /* ---------- Hero ---------- */
 .ww-hero {
@@ -2135,6 +2121,31 @@ body {
     50%      { box-shadow: 0 0 0 5px rgba(245, 166, 35, 0); }
 }
 
+/* Palabra "llegando" a la lista (partida / reto diario) — mismo lenguaje
+   que ww-stop-arrive del hero, más rápido por su frecuencia real */
+.word-item--enter {
+    animation: ww-stop-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+    .word-item--enter { animation: none; }
+}
+
+/* Micro-shake cuando una palabra se rechaza */
+@keyframes ww-input-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-4px); }
+    40%      { transform: translateX(4px); }
+    60%      { transform: translateX(-3px); }
+    80%      { transform: translateX(3px); }
+}
+.word-input--shake {
+    animation: ww-input-shake 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    border-color: var(--line-scarlet) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .word-input--shake { animation: none; }
+}
+
 /* Scroll reveal */
 #landing-screen [data-reveal] {
     opacity: 0;
@@ -2248,7 +2259,7 @@ body {
     font-size: 0.92rem;
     border-radius: 8px;
     font-family: var(--ww-sans);
-    transition: background-color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    transition: background-color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-primary {
     background: var(--ww-accent);
@@ -2275,6 +2286,7 @@ body {
     box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.6);
     transform: translateY(-1px);
 }
+.btn:active:not(:disabled) { transform: scale(0.97); }
 
 /* ---------- Tarjetas / contenedores ---------- */
 .auth-content,
@@ -2556,12 +2568,40 @@ body {
     border: 1px solid rgba(245, 166, 35, 0.4);
 }
 
-/* ---------- Matchmaking ---------- */
-.loading-spinner {
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top: 4px solid var(--ww-accent);
+/* ---------- Matchmaking: buscando línea disponible ---------- */
+.ww-search-track {
+    position: relative;
+    width: 220px;
+    height: 6px;
+    margin: 34px auto 22px;
+    border-radius: 999px;
+    background: var(--ww-bg-2);
+    border: 1px solid var(--ww-line);
 }
-.matchmaking-content p { color: var(--ww-muted); }
+.ww-search-track-dot {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: var(--ww-accent);
+    animation: ww-search-sweep 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes ww-search-sweep {
+    0%   { left: 0; }
+    50%  { left: calc(100% - 14px); }
+    100% { left: 0; }
+}
+.ww-search-status {
+    color: var(--ww-muted);
+    transition: opacity 200ms ease;
+}
+.ww-search-status--out { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .ww-search-track-dot { animation: none; left: calc(50% - 7px); }
+}
 
 /* ---------- Modales ---------- */
 .modal-content {

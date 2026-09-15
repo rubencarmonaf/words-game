@@ -57,6 +57,14 @@ Headline scale is mixed-case (not uppercase) for legibility at display sizes; up
 
 One authored moment on the flagship surface (the hero route panel's arrival sequence), plus scroll-reveal fades on section entry and a small live-state pulse on the in-progress station tick. No hover-shimmer or scattered decorative motion — removed deliberately in Phase 1.
 
+**Phase 6 (motion pass)** extended real gameplay screens, found via `find-animation-opportunities` and gated one-by-one against frequency/purpose/speed/function before building:
+- Global press feedback (`:active { transform: scale(0.97) }`, 140ms) on every `.btn`/`.ww-btn` — previously only `.back-btn` had one.
+- Word chips arrive rather than teleport: `UI.syncWordItems()` appends only the new item (`.word-item--enter`, reuses `ww-stop-arrive` at 220ms) instead of rebuilding the whole list on every submission — fixed in both the live game and the daily challenge, which had duplicated the same rebuild-from-scratch code.
+- Rejected words get a 220ms input shake (`.word-input--shake`) alongside the existing toast, auto-clearing after 900ms.
+- Matchmaking's generic spinner became `.ww-search-track` — a dot sweeping a rail, with the status line cycling through phrases ("Buscando línea disponible…", "Confirmando andén…") every 2.6s. This is the one surface with real dead time and no functional reading task, so it carries more motion/copy budget than anywhere else in Operate territory.
+
+Rejected in the same pass: animating the per-second game timer (functional data, too frequent), and a "travel between stations" screen-transition redesign (current 0.3s fade is already correctly calibrated for how often screen nav fires — more motion there would slow the app down, not bring it to life).
+
 ## Known gaps / deferred work
 
 - The menu's mode buttons (`.mode-btn`) still follow an icon-above/beside-heading structure the design detector flags as the generic "card" template. This is a deliberate call, not an oversight: the menu is an Operate surface (choosing a mode to start), where the floor's own guidance ("scanability... outrank expression") favors a clear, conventional button grid over an inventive structure. The landing's equivalent section (Persuade context, where distinctiveness matters more) was restructured into `.ww-route-map` — a connected line diagram, not a card grid — specifically to resolve this.
