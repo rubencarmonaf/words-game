@@ -24,8 +24,11 @@ export const routes: Routes = [
       import('./features/auth/forgot-password').then((m) => m.ForgotPassword),
   },
   {
+    // No guestGuard here on purpose: the reset link WordWars emails must work
+    // even if the browser still has an unrelated (or stale) session logged
+    // in — matches main.ts's original ?reset= handling, which never checked
+    // the stored token before showing the reset form.
     path: 'auth/reset-password',
-    canActivate: [guestGuard],
     loadComponent: () =>
       import('./features/auth/reset-password').then((m) => m.ResetPassword),
   },

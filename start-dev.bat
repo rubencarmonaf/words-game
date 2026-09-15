@@ -13,7 +13,7 @@ start "Frontend Client" cmd /k "npm run dev:client"
 
 echo.
 echo ✅ Servidor backend: http://localhost:3000
-echo ✅ Cliente frontend: http://localhost:3001
+echo ✅ Cliente frontend: http://localhost:4200
 echo.
 echo Presiona cualquier tecla para cerrar esta ventana...
 pause > nul

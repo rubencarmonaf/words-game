@@ -24,10 +24,10 @@ Un juego de palabras competitivo online con sistema de ranking ELO, desarrollado
 - **bcryptjs** para hash de contraseñas
 
 ### Frontend
-- **TypeScript** puro
-- **Vite** para build y desarrollo
+- **Angular** (standalone components, Signals, zoneless) en `client-angular/`
+- **SCSS** por componente, con tokens de diseño compartidos
 - **Socket.io Client** para comunicación en tiempo real
-- **CSS3** con animaciones y diseño responsive
+- **DiceBear** para los avatares ilustrados
 
 ## 📦 Instalación
 
@@ -132,18 +132,21 @@ src/
 
 ### Frontend Structure
 ```
-client/
-├── auth/            # Gestión de autenticación
-│   └── AuthManager.ts
-├── game/            # Lógica del juego
-│   └── WordGame.ts
-├── socket/          # Comunicación WebSocket
-│   └── SocketManager.ts
-├── ui/              # Interfaz de usuario
-│   └── UI.ts
-├── main.ts          # Punto de entrada
-├── index.html       # HTML principal
-└── styles.css       # Estilos
+client-angular/
+├── src/
+│   ├── app/
+│   │   ├── core/
+│   │   │   ├── services/       # Auth, Game, Socket, Profile, DailyChallenge...
+│   │   │   ├── guards/         # authGuard, guestGuard, resetRedirectGuard
+│   │   │   └── models/         # eloTier() y demás modelos de cliente
+│   │   ├── features/           # Una carpeta/archivo por pantalla enrutada
+│   │   ├── shared/
+│   │   │   ├── components/     # ww-avatar, toast-host, site-footer...
+│   │   │   └── services/       # Toast, CookieConsent
+│   │   ├── app.routes.ts
+│   │   └── app.config.ts
+│   └── styles/                # Tokens, reset, forms, buttons (vocabulario global)
+└── proxy.conf.json            # /api y /socket.io → http://localhost:3000
 ```
 
 ## 🔧 API Endpoints

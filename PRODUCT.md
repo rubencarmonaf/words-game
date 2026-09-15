@@ -28,22 +28,22 @@ A neighboring word game could not truthfully copy: real-time, ranked (ELO), head
 
 ## Capabilities and Constraints
 
-- Frontend: TypeScript (no framework) + Vite, single-page app (`client/index.html` + screen-toggle pattern) plus a handful of standalone static pages (legal, contact, thank-you, 404).
+- Frontend: Angular (standalone components, Signals, zoneless), in `client-angular/` — a routed single-page app; the legal/contact/thank-you/404 pages are routed components sharing a common static-page shell, not separate HTML files.
 - Backend: Express + Socket.io + MongoDB/Mongoose + JWT auth.
 - Word validation depends on an external RAE-backed dictionary service (`src/utils/dictionary.ts`) — must stay accurate; never fake or locally approximate validation.
 - ELO, games played/won, and daily-challenge completion are real, persisted stats — never invent demo numbers as if real.
-- No design system file exists yet; the landing screen (`#landing-screen` / `.ww-*` classes) already carries one coherent, deliberately art-directed identity (dark, editorial). Every other screen (auth, menu, lobby, live game, results, daily challenge, modals) still carries older, plainer styling that was only partially retrofitted to dark mode.
+- A design system exists and is documented in `DESIGN.md` (Midnight Transit Network) — every screen shares the same identity, ported 1:1 into Angular component styles during the client-angular migration.
 
 ## Brand Commitments
 
-- Name: **WordWars**. Existing wordmark/logo at `client/assets/logo.png` (white) and `logo_black.png` (dark-on-light variant, currently unused in code).
+- Name: **WordWars**. Existing wordmark/logo at `client-angular/public/assets/logo.png` (white) and `logo_black.png` (dark-on-light variant, currently unused in code).
 - Language: Spanish only (UI copy, marketing copy, legal pages).
 - Personal project by Ruben Carmona (no registered company); contact `rubencarmonaf@gmail.com`.
 - User has approved discarding the current landing identity too: this redesign is a full visual-identity replacement, not an extension of the existing "editorial lima" look.
 
 ## Evidence on Hand
 
-- Real, working game mechanics and copy throughout `client/index.html` and `client/main.ts` — reusable as real content, not placeholder.
+- Real, working game mechanics and copy throughout `client-angular/src/app` — reusable as real content, not placeholder.
 - No product photography, illustration, or brand assets beyond the wordmark.
 - No customer testimonials, press, or case studies — none should be invented.
 

@@ -14,7 +14,7 @@ gnome-terminal -- bash -c "npm run dev:client; exec bash" &
 
 echo
 echo "✅ Servidor backend: http://localhost:3000"
-echo "✅ Cliente frontend: http://localhost:3001"
+echo "✅ Cliente frontend: http://localhost:4200"
 echo
 echo "Presiona Enter para continuar..."
 read
