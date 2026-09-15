@@ -2894,16 +2894,17 @@ body::before {
 
 .ww-avatar-editor-tabs {
     display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 10px;
-    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 16px;
+    margin-bottom: 18px;
     border-bottom: 1px solid var(--ww-line);
-    scrollbar-width: thin;
 }
 .ww-avatar-tab {
-    flex-shrink: 0;
-    padding: 7px 14px;
+    flex: 1 1 0;
+    min-width: 100px;
+    text-align: center;
+    padding: 9px 14px;
     border-radius: 999px;
     background: var(--ww-bg-2);
     border: 1px solid var(--ww-line-strong);
@@ -2917,6 +2918,20 @@ body::before {
 .ww-avatar-tab:hover { color: var(--ww-text); }
 .ww-avatar-tab.selected { background: var(--ww-accent); border-color: var(--ww-accent); color: var(--ww-accent-ink); }
 .ww-avatar-tab:active { transform: scale(0.96); }
+
+.ww-avatar-editor-content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+.ww-avatar-section-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ww-muted);
+    margin-bottom: 10px;
+}
 
 .ww-avatar-swatch-grid {
     display: flex;
@@ -2940,9 +2955,6 @@ body::before {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    max-height: 260px;
-    overflow-y: auto;
-    padding-right: 4px;
 }
 .ww-avatar-thumb {
     width: 56px;

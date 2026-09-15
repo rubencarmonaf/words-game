@@ -35,3 +35,18 @@ export const AVATAR_CATEGORIES: AvatarCategory[] = [
     { field: 'clothesColor', label: 'Color de ropa', kind: 'color', options: AVATAR_CLOTHES_COLORS },
     { field: 'backgroundColor', label: 'Fondo', kind: 'color', options: AVATAR_BACKGROUND_COLORS }
 ];
+
+// Agrupación de alto nivel para el editor: 4 pestañas en vez de 11, cada una
+// con sus subcategorías apiladas verticalmente (scroll normal, no horizontal).
+export interface AvatarGroup {
+    key: string;
+    label: string;
+    fields: (keyof AvatarOptions)[];
+}
+
+export const AVATAR_GROUPS: AvatarGroup[] = [
+    { key: 'face', label: 'Cara', fields: ['skinColor', 'eyes', 'eyebrows', 'mouth', 'facialHair'] },
+    { key: 'hair', label: 'Pelo', fields: ['top', 'hairColor'] },
+    { key: 'style', label: 'Estilo', fields: ['accessories', 'clothing', 'clothesColor'] },
+    { key: 'background', label: 'Fondo', fields: ['backgroundColor'] }
+];

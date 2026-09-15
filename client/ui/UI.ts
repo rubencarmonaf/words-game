@@ -1,6 +1,6 @@
 import { AvatarOptions } from '../../src/types';
 import { renderAvatarSvg, renderAvatarPreview } from '../avatar/renderAvatar';
-import { AVATAR_CATEGORIES } from '../avatar/categories';
+import { AVATAR_CATEGORIES, AVATAR_GROUPS } from '../avatar/categories';
 
 const SCREEN_TITLES: Record<string, string> = {
     'landing-screen': 'WordWars — Batallas de palabras en tiempo real',
@@ -355,51 +355,55 @@ export class UI {
         if (usernameInput) usernameInput.value = user.username;
     }
 
-    // ---------- Editor de avatar (pestañas + rejilla de opciones) ----------
-    private activeAvatarTab: keyof AvatarOptions = 'top';
+    // ---------- Editor de avatar (grupos + subcategorías apiladas) ----------
+    private activeAvatarGroup: string = AVATAR_GROUPS[0].key;
 
     buildAvatarEditor(getCurrent: () => AvatarOptions, onSelect: (field: keyof AvatarOptions, value: string) => void): void {
-        const tabsEl = document.getElementById('avatar-tabs');
-        if (!tabsEl) return;
+        const groupsEl = document.getElementById('avatar-groups');
+        if (!groupsEl) return;
 
-        tabsEl.innerHTML = AVATAR_CATEGORIES.map(cat => `
-            <button type="button" class="ww-avatar-tab${cat.field === this.activeAvatarTab ? ' selected' : ''}" data-field="${cat.field}">${cat.label}</button>
+        groupsEl.innerHTML = AVATAR_GROUPS.map(group => `
+            <button type="button" class="ww-avatar-tab${group.key === this.activeAvatarGroup ? ' selected' : ''}" data-group="${group.key}">${group.label}</button>
         `).join('');
 
-        tabsEl.querySelectorAll<HTMLElement>('.ww-avatar-tab').forEach(btn => {
+        groupsEl.querySelectorAll<HTMLElement>('.ww-avatar-tab').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.activeAvatarTab = btn.dataset.field as keyof AvatarOptions;
-                tabsEl.querySelectorAll('.ww-avatar-tab').forEach(b => b.classList.toggle('selected', b === btn));
-                this.renderAvatarPanel(getCurrent, onSelect);
+                this.activeAvatarGroup = btn.dataset.group!;
+                groupsEl.querySelectorAll('.ww-avatar-tab').forEach(b => b.classList.toggle('selected', b === btn));
+                this.renderAvatarGroupContent(getCurrent, onSelect);
             });
         });
 
-        this.renderAvatarPanel(getCurrent, onSelect);
+        this.renderAvatarGroupContent(getCurrent, onSelect);
     }
 
-    private renderAvatarPanel(getCurrent: () => AvatarOptions, onSelect: (field: keyof AvatarOptions, value: string) => void): void {
-        const optionsEl = document.getElementById('avatar-options');
-        if (!optionsEl) return;
+    private renderAvatarGroupContent(getCurrent: () => AvatarOptions, onSelect: (field: keyof AvatarOptions, value: string) => void): void {
+        const contentEl = document.getElementById('avatar-content');
+        if (!contentEl) return;
 
         const current = getCurrent();
-        const category = AVATAR_CATEGORIES.find(c => c.field === this.activeAvatarTab)!;
+        const group = AVATAR_GROUPS.find(g => g.key === this.activeAvatarGroup)!;
 
-        if (category.kind === 'color') {
-            optionsEl.innerHTML = `<div class="ww-avatar-swatch-grid">${category.options.map(opt => `
-                <button type="button" class="ww-avatar-swatch${current[category.field] === opt ? ' selected' : ''}" data-value="${opt}" style="background:#${opt}" aria-label="Color ${opt}"></button>
-            `).join('')}</div>`;
-        } else {
-            optionsEl.innerHTML = `<div class="ww-avatar-thumb-grid">${category.options.map(opt => `
-                <button type="button" class="ww-avatar-thumb${current[category.field] === opt ? ' selected' : ''}" data-value="${opt}" aria-label="${opt === '' ? (category.noneLabel || 'Ninguno') : opt}">
-                    ${opt === '' ? `<span class="ww-avatar-thumb-none">${category.noneLabel || 'Ninguno'}</span>` : renderAvatarPreview(current, category.field, opt)}
-                </button>
-            `).join('')}</div>`;
-        }
+        contentEl.innerHTML = group.fields.map(field => {
+            const category = AVATAR_CATEGORIES.find(c => c.field === field)!;
+            const grid = category.kind === 'color'
+                ? `<div class="ww-avatar-swatch-grid">${category.options.map(opt => `
+                    <button type="button" class="ww-avatar-swatch${current[field] === opt ? ' selected' : ''}" data-field="${field}" data-value="${opt}" style="background:#${opt}" aria-label="Color ${opt}"></button>
+                `).join('')}</div>`
+                : `<div class="ww-avatar-thumb-grid">${category.options.map(opt => `
+                    <button type="button" class="ww-avatar-thumb${current[field] === opt ? ' selected' : ''}" data-field="${field}" data-value="${opt}" aria-label="${opt === '' ? (category.noneLabel || 'Ninguno') : opt}">
+                        ${opt === '' ? `<span class="ww-avatar-thumb-none">${category.noneLabel || 'Ninguno'}</span>` : renderAvatarPreview(current, field, opt)}
+                    </button>
+                `).join('')}</div>`;
 
-        optionsEl.querySelectorAll<HTMLElement>('[data-value]').forEach(btn => {
+            return `<div class="ww-avatar-section"><p class="ww-avatar-section-label">${category.label}</p>${grid}</div>`;
+        }).join('');
+
+        contentEl.querySelectorAll<HTMLElement>('[data-value]').forEach(btn => {
             btn.addEventListener('click', () => {
-                onSelect(category.field, btn.dataset.value || '');
-                this.renderAvatarPanel(getCurrent, onSelect);
+                const field = btn.dataset.field as keyof AvatarOptions;
+                onSelect(field, btn.dataset.value || '');
+                this.renderAvatarGroupContent(getCurrent, onSelect);
             });
         });
     }
