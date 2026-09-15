@@ -1,0 +1,28 @@
+/* Botón "Volver" compartido por las pantallas tipo tarjeta (auth, perfil,
+   lobby, reto diario...). El posicionamiento (absolute + offset) es propio
+   de cada contenedor, así que se queda en el componente que lo usa. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ww-line-strong);
+  color: var(--ww-text);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.back-btn:hover {
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateX(-2px);
+}
+.back-btn:active {
+  transform: translateX(-1px) scale(0.97);
+}
