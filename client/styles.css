@@ -2004,28 +2004,9 @@ body {
 }
 
 /* ============================================================
-   LANDING — Rediseño "competitivo editorial" (scoped: .ww-*)
-   Tema oscuro premium · serif de display + grotesca + mono
+   LANDING — Red de Metro Nocturna (scoped: .ww-*)
+   Hereda los tokens globales de :root (ver TEMA GLOBAL más abajo)
    ============================================================ */
-
-#landing-screen {
-    --ww-bg: #0b0d11;
-    --ww-bg-2: #0f1217;
-    --ww-surface: #14181f;
-    --ww-surface-2: #1a1f28;
-    --ww-line: rgba(255, 255, 255, 0.09);
-    --ww-line-strong: rgba(255, 255, 255, 0.16);
-    --ww-text: #f4f1e9;
-    --ww-muted: #9aa2af;
-    --ww-faint: #6b7280;
-    --ww-accent: #cdf24a;       /* lima eléctrico — energía/CTA */
-    --ww-accent-ink: #0b0d11;   /* texto sobre el acento */
-    --ww-fire: #ff7a3c;         /* reto diario */
-    --ww-radius: 18px;
-    --ww-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-    --ww-sans: 'Hanken Grotesk', 'Segoe UI', system-ui, sans-serif;
-    --ww-mono: 'JetBrains Mono', 'Courier New', monospace;
-}
 
 /* Romper el contenedor centrado (max-width:1200px) → full-bleed */
 .ww-landing {
@@ -2695,34 +2676,47 @@ body {
 }
 
 /* ============================================================
-   TEMA OSCURO GLOBAL — resto de pantallas (auth, menú, lobby,
-   juego, resultados, reto diario, modales). Mismas clases
-   legacy; la landing usa .ww-* y no se ve afectada.
+   TOKENS GLOBALES — Red de Metro Nocturna
+   Fuente única de verdad para toda la app (landing incluida).
    ============================================================ */
 
 :root {
-    --ww-bg: #0b0d11;
-    --ww-bg-2: #0f1217;
-    --ww-surface: #14181f;
-    --ww-surface-2: #1a1f28;
-    --ww-line: rgba(255, 255, 255, 0.09);
-    --ww-line-strong: rgba(255, 255, 255, 0.16);
-    --ww-text: #f4f1e9;
-    --ww-muted: #9aa2af;
-    --ww-faint: #6b7280;
-    --ww-accent: #cdf24a;
-    --ww-accent-ink: #0b0d11;
-    --ww-fire: #ff7a3c;
-    --ww-serif: 'Fraunces', Georgia, serif;
-    --ww-sans: 'Hanken Grotesk', 'Segoe UI', system-ui, sans-serif;
-    --ww-mono: 'JetBrains Mono', 'Courier New', monospace;
+    /* Superficie — azul medianoche esmaltado */
+    --ww-bg: #0a1628;
+    --ww-bg-2: #0d1c33;
+    --ww-surface: #11233f;
+    --ww-surface-2: #152947;
+    --ww-line: rgba(178, 198, 224, 0.14);
+    --ww-line-strong: rgba(178, 198, 224, 0.28);
+    --ww-radius: 14px;
+
+    /* Tinta — blanco porcelana */
+    --ww-text: #f1efe7;
+    --ww-muted: #a3b4cc;
+    --ww-faint: #6b7d9b;
+
+    /* Acento primario (CTAs, foco, enlaces): ámbar de panel de salidas */
+    --ww-accent: #f5a623;
+    --ww-accent-ink: #0a1628;
+
+    /* Líneas con significado propio de juego */
+    --line-scarlet: #ef4a5f;  /* Versus / competitivo / crítico */
+    --line-cobalt: #4a90e2;   /* estructural / navegación */
+    --line-amber: #f5a623;    /* reto diario / urgencia */
+    --line-lime: #5fd97a;     /* Solo / amistoso / éxito */
+    --ww-fire: var(--line-amber);
+
+    /* Tipografía — señalética de transporte */
+    --ww-serif: 'Overpass', 'Arial Narrow', sans-serif;
+    --ww-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+    --ww-mono: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
 body {
     font-family: var(--ww-sans);
     background:
-        radial-gradient(900px 500px at 50% -10%, rgba(205, 242, 74, 0.08), transparent 70%),
-        radial-gradient(700px 500px at 85% 5%, rgba(255, 122, 60, 0.05), transparent 70%),
+        radial-gradient(900px 500px at 50% -10%, rgba(245, 166, 35, 0.07), transparent 70%),
+        radial-gradient(700px 500px at 85% 5%, rgba(74, 144, 226, 0.08), transparent 70%),
         var(--ww-bg);
     background-attachment: fixed;
     color: var(--ww-text);
@@ -2730,31 +2724,40 @@ body {
 
 /* ---------- Botones (global app) ---------- */
 .btn {
-    text-transform: none;
-    letter-spacing: 0.01em;
-    border-radius: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    font-size: 0.92rem;
+    border-radius: 8px;
     font-family: var(--ww-sans);
+    transition: background-color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
 .btn-primary {
     background: var(--ww-accent);
     color: var(--ww-accent-ink);
-    box-shadow: 0 8px 24px rgba(205, 242, 74, 0.18);
+    box-shadow: 0 8px 22px rgba(245, 166, 35, 0.22);
 }
 .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 14px 34px rgba(205, 242, 74, 0.3);
+    box-shadow: 0 12px 28px rgba(245, 166, 35, 0.32);
+    transform: translateY(-1px);
 }
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(178, 198, 224, 0.06);
     color: var(--ww-text);
     border: 1px solid var(--ww-line-strong);
 }
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(178, 198, 224, 0.12);
+    border-color: rgba(178, 198, 224, 0.4);
 }
 .btn-danger {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-    box-shadow: 0 8px 24px rgba(255, 107, 107, 0.22);
+    background: var(--line-scarlet);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(239, 74, 95, 0.25);
+}
+.btn-danger:hover:not(:disabled) {
+    box-shadow: 0 12px 28px rgba(239, 74, 95, 0.35);
+    transform: translateY(-1px);
 }
 
 /* ---------- Tarjetas / contenedores ---------- */
@@ -2766,8 +2769,9 @@ body {
 .results-content,
 .daily-challenge-content {
     background: var(--ww-surface);
-    border: 1px solid var(--ww-line);
-    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius);
+    box-shadow: none;
     color: var(--ww-text);
 }
 
@@ -2863,7 +2867,7 @@ body {
 #word-input:focus,
 .word-input-section input:focus {
     border-color: var(--ww-accent);
-    box-shadow: 0 0 0 3px rgba(205, 242, 74, 0.14);
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.16);
 }
 .password-toggle:hover { background-color: rgba(255, 255, 255, 0.07); }
 
@@ -3398,3 +3402,80 @@ body {
     .ww-cookie-banner { left: 12px; right: 12px; bottom: 12px; padding: 20px; }
     .ww-cookie-actions { flex-direction: column; }
 }
+
+/* ============================================================
+   FUNDAMENTOS — RED DE METRO NOCTURNA
+   Primitivos compartidos para construir cada pantalla sobre la
+   misma gramática de líneas/paradas. Roles de color:
+     escarlata → Versus / competitivo / crítico
+     cobalto   → estructural / navegación (por defecto)
+     ámbar     → reto diario / urgencia / acento primario
+     lima      → Solo / amistoso / éxito
+   ============================================================ */
+
+.line-rule {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--line-cobalt);
+}
+.line-rule--scarlet { background: var(--line-scarlet); }
+.line-rule--amber { background: var(--line-amber); }
+.line-rule--lime { background: var(--line-lime); }
+
+.station-tick {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ww-bg);
+    border: 2px solid var(--line-cobalt);
+    flex-shrink: 0;
+}
+.station-tick--scarlet { border-color: var(--line-scarlet); }
+.station-tick--amber { border-color: var(--line-amber); }
+.station-tick--lime { border-color: var(--line-lime); }
+.station-tick--active { background: var(--line-cobalt); border-color: var(--line-cobalt); }
+
+.board-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--ww-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--ww-bg-2);
+    border: 1px solid var(--ww-line-strong);
+    color: var(--ww-text);
+    font-variant-numeric: tabular-nums;
+}
+.board-badge--scarlet { color: var(--line-scarlet); border-color: rgba(239, 74, 95, 0.4); }
+.board-badge--amber { color: var(--line-amber); border-color: rgba(245, 166, 35, 0.4); }
+.board-badge--lime { color: var(--line-lime); border-color: rgba(95, 217, 122, 0.4); }
+.board-badge--cobalt { color: var(--line-cobalt); border-color: rgba(74, 144, 226, 0.4); }
+
+.platform-panel {
+    background: var(--ww-surface-2);
+    border: 1px solid var(--ww-line);
+    border-radius: var(--ww-radius);
+    padding: 18px 20px;
+}
+
+/* ---------- Superficies del navegador ---------- */
+::selection {
+    background: var(--ww-accent);
+    color: var(--ww-accent-ink);
+}
+
+:focus-visible {
+    outline: 2px solid var(--ww-accent);
+    outline-offset: 2px;
+}
+
+* { scrollbar-color: var(--ww-line-strong) var(--ww-bg-2); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--ww-bg-2); }
+::-webkit-scrollbar-thumb { background: var(--ww-line-strong); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ww-faint); }
