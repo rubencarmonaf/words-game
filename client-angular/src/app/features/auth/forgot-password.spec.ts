@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ForgotPassword } from './forgot-password';
 
 describe('ForgotPassword', () => {
@@ -8,6 +11,7 @@ describe('ForgotPassword', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ForgotPassword],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ForgotPassword);
@@ -17,5 +21,12 @@ describe('ForgotPassword', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('requires a valid email', () => {
+    component['form'].controls.email.setValue('not-an-email');
+    expect(component['form'].controls.email.hasError('email')).toBe(true);
+    component['form'].controls.email.setValue('a@b.com');
+    expect(component['form'].valid).toBe(true);
   });
 });

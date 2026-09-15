@@ -1,1 +1,49 @@
-<p>login works!</p>
+<ww-auth-card>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="input-group" [class.has-error]="form.controls.email.invalid && form.controls.email.touched">
+      <label for="login-email">Email:</label>
+      <input type="email" id="login-email" formControlName="email" autocomplete="email" />
+      @if (form.controls.email.touched && form.controls.email.hasError('required')) {
+        <span class="field-error">Introduce tu email</span>
+      } @else if (form.controls.email.touched && form.controls.email.hasError('email')) {
+        <span class="field-error">Introduce un email válido</span>
+      }
+    </div>
+
+    <div class="input-group" [class.has-error]="form.controls.password.invalid && form.controls.password.touched">
+      <label for="login-password">Contraseña:</label>
+      <div class="password-input-container">
+        <input
+          [type]="showPassword() ? 'text' : 'password'"
+          id="login-password"
+          formControlName="password"
+          autocomplete="current-password"
+        />
+        <button
+          type="button"
+          class="password-toggle"
+          [class.active]="showPassword()"
+          (click)="togglePassword()"
+          [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+        >
+          @if (showPassword()) {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0112 4c6.5 0 10 7 10 7a13.2 13.2 0 01-2.16 2.92" /><path d="M6.06 6.06A13.4 13.4 0 002 11s3.5 7 10 7a9 9 0 004-.93" /><path d="M9.9 9.9a3 3 0 104.2 4.2" /><line x1="3" y1="3" x2="21" y2="21" /></svg>
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+          }
+        </button>
+      </div>
+      @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+        <span class="field-error">Introduce tu contraseña</span>
+      } @else if (form.controls.password.errors?.['server']; as serverError) {
+        <span class="field-error">{{ serverError }}</span>
+      }
+    </div>
+
+    <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+      {{ submitting() ? 'Entrando…' : 'Iniciar Sesión' }}
+    </button>
+
+    <a routerLink="/auth/forgot-password" class="auth-link">¿Olvidaste tu contraseña?</a>
+  </form>
+</ww-auth-card>
