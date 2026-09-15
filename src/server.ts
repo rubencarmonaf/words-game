@@ -133,16 +133,9 @@ app.post('/api/register', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    const response: AuthResponse = { 
-      token, 
-      user: {
-        id: user._id.toString(),
-        username: user.username,
-        elo: user.elo,
-        gamesPlayed: user.gamesPlayed,
-        gamesWon: user.gamesWon,
-        winRate: user.winRate
-      }
+    const response: AuthResponse = {
+      token,
+      user: user.toPublicJSON()
     };
 
     res.status(201).json({ success: true, data: response });
@@ -179,16 +172,9 @@ app.post('/api/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    const response: AuthResponse = { 
-      token, 
-      user: {
-        id: user._id.toString(),
-        username: user.username,
-        elo: user.elo,
-        gamesPlayed: user.gamesPlayed,
-        gamesWon: user.gamesWon,
-        winRate: user.winRate
-      }
+    const response: AuthResponse = {
+      token,
+      user: user.toPublicJSON()
     };
 
     res.json({ success: true, data: response });
@@ -375,20 +361,64 @@ app.get('/api/profile', authenticateToken, async (req: any, res) => {
       res.status(404).json({ success: false, message: 'Usuario no encontrado' });
       return;
     }
-    
-    res.json({ 
-      success: true, 
-      data: {
-        id: user._id.toString(),
-        username: user.username,
-        elo: user.elo,
-        gamesPlayed: user.gamesPlayed,
-        gamesWon: user.gamesWon,
-        winRate: user.winRate
-      }
-    });
+
+    res.json({ success: true, data: user.toPublicJSON() });
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Actualizar perfil: nombre de usuario y/o personalización del avatar
+app.put('/api/profile', authenticateToken, async (req: any, res) => {
+  try {
+    const { username, avatarColor, avatarIcon } = req.body;
+    const validColors = ['cobalt', 'scarlet', 'amber', 'lime'];
+    const validIcons = ['target', 'link', 'bolt', 'users', 'flame', 'star'];
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      return;
+    }
+
+    if (username !== undefined) {
+      const trimmed = String(username).trim();
+      if (trimmed.length < 3 || trimmed.length > 20) {
+        res.status(400).json({ success: false, message: 'El nombre de usuario debe tener entre 3 y 20 caracteres' });
+        return;
+      }
+      if (trimmed !== user.username) {
+        const existing = await User.findOne({ username: trimmed });
+        if (existing) {
+          res.status(400).json({ success: false, message: 'Ese nombre de usuario ya está en uso' });
+          return;
+        }
+        user.username = trimmed;
+      }
+    }
+
+    if (avatarColor !== undefined) {
+      if (!validColors.includes(avatarColor)) {
+        res.status(400).json({ success: false, message: 'Color de avatar no válido' });
+        return;
+      }
+      user.avatarColor = avatarColor;
+    }
+
+    if (avatarIcon !== undefined) {
+      if (!validIcons.includes(avatarIcon)) {
+        res.status(400).json({ success: false, message: 'Icono de avatar no válido' });
+        return;
+      }
+      user.avatarIcon = avatarIcon;
+    }
+
+    await user.save();
+
+    res.json({ success: true, data: user.toPublicJSON() });
+  } catch (error) {
+    console.error('Error actualizando perfil:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });

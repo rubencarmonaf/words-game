@@ -40,6 +40,16 @@ const userSchema = new Schema<IUser>({
     type: Number,
     default: 0
   },
+  avatarColor: {
+    type: String,
+    enum: ['cobalt', 'scarlet', 'amber', 'lime'],
+    default: 'cobalt'
+  },
+  avatarIcon: {
+    type: String,
+    enum: ['target', 'link', 'bolt', 'users', 'flame', 'star'],
+    default: 'target'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -108,7 +118,9 @@ userSchema.methods.toPublicJSON = function() {
     elo: this.elo,
     gamesPlayed: this.gamesPlayed,
     gamesWon: this.gamesWon,
-    winRate: this.winRate
+    winRate: this.winRate,
+    avatarColor: this.avatarColor,
+    avatarIcon: this.avatarIcon
   };
 };
 

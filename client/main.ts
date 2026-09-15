@@ -12,6 +12,9 @@ class GameApp {
     private socketManager: SocketManager;
     private wordGame: WordGame;
     private resetToken: string | null = null;
+    private currentUser: any = null;
+    private selectedAvatarColor: string = 'cobalt';
+    private selectedAvatarIcon: string = 'target';
 
     // Daily Challenge properties
     private dailyChallenge: {
@@ -249,6 +252,9 @@ class GameApp {
 
         // Friends system
         this.setupFriendsSystem();
+
+        // Profile
+        this.setupProfileSystem();
 
         // Game controls
         document.getElementById('start-game')?.addEventListener('click', () => {
@@ -567,11 +573,99 @@ class GameApp {
         }
 
         if (user) {
-            document.getElementById('user-welcome')!.textContent = `¡Hola, ${user.username}!`;
-            document.getElementById('user-elo')!.textContent = user.elo.toString();
-            document.getElementById('user-games')!.textContent = user.gamesPlayed.toString();
-            document.getElementById('user-wins')!.textContent = user.gamesWon.toString();
-            document.getElementById('user-rate')!.textContent = `${user.winRate.toFixed(1)}%`;
+            this.currentUser = user;
+            this.ui.updateIdentityChip(user);
+        }
+    }
+
+    private setupProfileSystem(): void {
+        document.getElementById('open-profile-btn')?.addEventListener('click', () => {
+            this.showProfileScreen();
+        });
+
+        document.getElementById('back-to-menu-from-profile')?.addEventListener('click', () => {
+            this.showMainMenu();
+        });
+
+        document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+            this.toggleProfileEdit(true);
+        });
+
+        document.getElementById('cancel-edit-profile-btn')?.addEventListener('click', () => {
+            this.toggleProfileEdit(false);
+        });
+
+        document.querySelectorAll('.ww-color-swatch').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.ww-color-swatch').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                this.selectedAvatarColor = (btn as HTMLElement).dataset.color!;
+                this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
+            });
+        });
+
+        document.querySelectorAll('.ww-icon-swatch').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.ww-icon-swatch').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                this.selectedAvatarIcon = (btn as HTMLElement).dataset.icon!;
+                this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
+            });
+        });
+
+        document.getElementById('profile-edit-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProfile();
+        });
+    }
+
+    private async showProfileScreen(): Promise<void> {
+        const result = await this.authManager.getProfile();
+        if (result.success && result.data) {
+            this.currentUser = result.data;
+            this.selectedAvatarColor = result.data.avatarColor || 'cobalt';
+            this.selectedAvatarIcon = result.data.avatarIcon || 'target';
+            this.toggleProfileEdit(false);
+            this.ui.showProfile(result.data);
+        } else {
+            this.ui.showMessage(result.message || 'No se pudo cargar el perfil', 'error');
+        }
+    }
+
+    private toggleProfileEdit(show: boolean): void {
+        const form = document.getElementById('profile-edit-form');
+        if (form) form.hidden = !show;
+        if (show && this.currentUser) {
+            const usernameInput = document.getElementById('profile-username-input') as HTMLInputElement;
+            if (usernameInput) usernameInput.value = this.currentUser.username;
+            this.selectedAvatarColor = this.currentUser.avatarColor || 'cobalt';
+            this.selectedAvatarIcon = this.currentUser.avatarIcon || 'target';
+            this.ui.setAvatarPickerSelection(this.selectedAvatarColor, this.selectedAvatarIcon);
+            this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
+        } else if (!show && this.currentUser) {
+            // Revert any unsaved preview back to the last saved avatar
+            this.ui.applyAvatar('profile-avatar', this.currentUser.avatarColor || 'cobalt', this.currentUser.avatarIcon || 'target', 'lg');
+        }
+    }
+
+    private async saveProfile(): Promise<void> {
+        const usernameInput = document.getElementById('profile-username-input') as HTMLInputElement;
+        const username = usernameInput?.value.trim() || '';
+
+        const result = await this.authManager.updateProfile({
+            username,
+            avatarColor: this.selectedAvatarColor,
+            avatarIcon: this.selectedAvatarIcon
+        });
+
+        if (result.success && result.data) {
+            this.currentUser = result.data;
+            this.ui.renderProfile(result.data);
+            this.ui.updateIdentityChip(result.data);
+            this.toggleProfileEdit(false);
+            this.ui.showMessage('Perfil actualizado', 'success');
+        } else {
+            this.ui.showMessage(result.message || 'Error actualizando el perfil', 'error');
         }
     }
 

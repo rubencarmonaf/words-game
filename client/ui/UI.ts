@@ -7,8 +7,37 @@ const SCREEN_TITLES: Record<string, string> = {
     'game-setup': 'Configurar partida · WordWars',
     'matchmaking-screen': 'Buscando partida · WordWars',
     'game-screen': 'Partida en curso · WordWars',
-    'results-screen': 'Resultados · WordWars'
+    'results-screen': 'Resultados · WordWars',
+    'profile-screen': 'Perfil · WordWars'
 };
+
+// Iconos reutilizados del set de modos de juego + una estrella para el picker de avatar
+const AVATAR_ICONS: Record<string, string> = {
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+    link: '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>',
+    bolt: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    users: '<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',
+    flame: '<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 002.5 2.5z"/>',
+    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
+};
+
+function avatarSvg(icon: string): string {
+    const path = AVATAR_ICONS[icon] || AVATAR_ICONS.target;
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+}
+
+// Los tiers de ELO son la fuente del "nivel" del carnet de perfil — ningún dato inventado,
+// reutilizan el mismo significado de color de línea que ya tienen los modos de juego.
+const ELO_TIERS = [
+    { key: 'cobalt', name: 'Aprendiz', min: 0, max: 1100 },
+    { key: 'lime', name: 'Viajero', min: 1100, max: 1400 },
+    { key: 'amber', name: 'Experto', min: 1400, max: 1700 },
+    { key: 'scarlet', name: 'Leyenda', min: 1700, max: null as number | null }
+];
+
+function eloTier(elo: number) {
+    return ELO_TIERS.find(t => elo >= t.min && (t.max === null || elo < t.max)) || ELO_TIERS[0];
+}
 
 const MATCHMAKING_PHRASES = [
     'Buscando línea disponible…',
@@ -268,6 +297,72 @@ export class UI {
 
     showGame(): void {
         this.showScreen('game-screen');
+    }
+
+    // ---------- Identidad / perfil ----------
+
+    applyAvatar(elementId: string, color: string, icon: string, size: 'sm' | 'lg'): void {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        el.className = `ww-avatar ww-avatar--${size} ww-avatar--${color}`;
+        el.innerHTML = avatarSvg(icon);
+    }
+
+    updateIdentityChip(user: any): void {
+        this.applyAvatar('user-avatar-chip', user.avatarColor || 'cobalt', user.avatarIcon || 'target', 'sm');
+        const name = document.getElementById('user-welcome');
+        if (name) name.textContent = user.username;
+    }
+
+    showProfile(user: any): void {
+        this.showScreen('profile-screen');
+        this.renderProfile(user);
+    }
+
+    renderProfile(user: any): void {
+        this.applyAvatar('profile-avatar', user.avatarColor || 'cobalt', user.avatarIcon || 'target', 'lg');
+
+        const nameEl = document.getElementById('profile-username');
+        if (nameEl) nameEl.textContent = user.username;
+
+        const tier = eloTier(user.elo);
+        const badge = document.getElementById('profile-tier');
+        if (badge) badge.className = `ww-tier-badge ww-tier-badge--${tier.key}`;
+        const tierName = document.getElementById('profile-tier-name');
+        if (tierName) tierName.textContent = tier.name;
+
+        const bar = document.getElementById('profile-tier-progress') as HTMLElement;
+        const label = document.getElementById('profile-tier-label');
+        if (tier.max === null) {
+            if (bar) bar.style.setProperty('--fill', '1');
+            if (label) label.textContent = `${user.elo} ELO · nivel máximo`;
+        } else {
+            const pct = Math.max(0, Math.min(1, (user.elo - tier.min) / (tier.max - tier.min)));
+            if (bar) bar.style.setProperty('--fill', pct.toString());
+            if (label) label.textContent = `${user.elo} ELO · ${tier.max - user.elo} para el siguiente nivel`;
+        }
+
+        const elo = document.getElementById('profile-elo');
+        if (elo) elo.textContent = user.elo.toString();
+        const games = document.getElementById('profile-games');
+        if (games) games.textContent = user.gamesPlayed.toString();
+        const wins = document.getElementById('profile-wins');
+        if (wins) wins.textContent = user.gamesWon.toString();
+        const rate = document.getElementById('profile-rate');
+        if (rate) rate.textContent = `${user.winRate.toFixed(1)}%`;
+
+        const usernameInput = document.getElementById('profile-username-input') as HTMLInputElement;
+        if (usernameInput) usernameInput.value = user.username;
+        this.setAvatarPickerSelection(user.avatarColor || 'cobalt', user.avatarIcon || 'target');
+    }
+
+    setAvatarPickerSelection(color: string, icon: string): void {
+        document.querySelectorAll('.ww-color-swatch').forEach(btn => {
+            btn.classList.toggle('selected', (btn as HTMLElement).dataset.color === color);
+        });
+        document.querySelectorAll('.ww-icon-swatch').forEach(btn => {
+            btn.classList.toggle('selected', (btn as HTMLElement).dataset.icon === icon);
+        });
     }
 
     showResults(results: any, won: boolean = false): void {
