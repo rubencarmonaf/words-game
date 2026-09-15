@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>¡Gracias! · WordWars</title>
+    <meta name="description" content="Gracias por tu interés en WordWars.">
+    <meta name="robots" content="noindex, follow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="ww-static-page">
+        <header class="ww-nav ww-static-nav">
+            <a href="./index.html" class="ww-brand">
+                <img src="./assets/logo.png" alt="WordWars — volver al inicio" class="ww-brand-logo">
+            </a>
+            <a href="./index.html" class="ww-static-back">Volver al inicio</a>
+        </header>
+
+        <main class="ww-center-page">
+            <div class="ww-center-card">
+                <span class="ww-eyebrow">Gracias</span>
+                <h1 id="gracias-title">¡Gracias!</h1>
+                <p id="gracias-text">Gracias por pasarte por WordWars.</p>
+                <div class="ww-btn-row">
+                    <a href="./index.html" id="gracias-cta" class="ww-btn ww-btn--primary ww-btn--lg">Jugar ahora</a>
+                    <a href="./contacto.html" class="ww-btn ww-btn--ghost ww-btn--lg">Contactar</a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="ww-footer">
+            <span class="ww-footer-brand">WordWars</span>
+            <nav class="ww-footer-links">
+                <a href="./privacidad.html">Privacidad</a>
+                <a href="./terminos.html">Términos y condiciones</a>
+                <a href="./aviso-legal.html">Aviso legal</a>
+                <a href="./cookies.html">Cookies</a>
+                <a href="./contacto.html">Contacto</a>
+                <a href="#" data-cookie-settings>Preferencias de cookies</a>
+            </nav>
+            <span class="ww-footer-note">Hecho para los que aman las palabras · Español</span>
+        </footer>
+    </div>
+
+    <script>
+        (function () {
+            var tipo = new URLSearchParams(window.location.search).get('tipo');
+            var title = document.getElementById('gracias-title');
+            var text = document.getElementById('gracias-text');
+            var cta = document.getElementById('gracias-cta');
+
+            if (tipo === 'reset') {
+                title.textContent = 'Revisa tu correo';
+                text.textContent = 'Si el email que has introducido está registrado, te hemos enviado un enlace para crear una nueva contraseña. Revisa también la carpeta de spam por si acaso.';
+                cta.textContent = 'Volver a iniciar sesión';
+                cta.setAttribute('href', './index.html');
+            } else if (tipo === 'registro') {
+                title.textContent = '¡Bienvenido a WordWars!';
+                text.textContent = 'Tu cuenta se ha creado correctamente. Ya puedes formar palabras, subir en el ranking ELO y retar a tus amigos.';
+                cta.textContent = 'Empezar a jugar';
+            } else if (tipo === 'contacto') {
+                title.textContent = '¡Mensaje enviado!';
+                text.textContent = 'Gracias por escribir. Te responderemos lo antes posible al email que nos hayas indicado.';
+                cta.textContent = 'Volver al inicio';
+            }
+        })();
+    </script>
+    <script type="module" src="./site-notice.ts"></script>
+</body>
+</html>

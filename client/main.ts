@@ -3,6 +3,7 @@ import { WordGame } from './game/WordGame';
 import { AuthManager } from './auth/AuthManager';
 import { UI } from './ui/UI';
 import { SocketManager } from './socket/SocketManager';
+import './site-notice';
 
 // Initialize the game
 class GameApp {
@@ -347,15 +348,37 @@ class GameApp {
         });
     }
 
+    private isValidEmail(email: string): boolean {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
     private async handleLogin(): Promise<void> {
-        const email = (document.getElementById('login-email') as HTMLInputElement).value;
+        this.ui.clearFormErrors('login-form');
+        const email = (document.getElementById('login-email') as HTMLInputElement).value.trim();
         const password = (document.getElementById('login-password') as HTMLInputElement).value;
+
+        let hasError = false;
+        if (!email) {
+            this.ui.showFieldError('login-email', 'Introduce tu email');
+            hasError = true;
+        } else if (!this.isValidEmail(email)) {
+            this.ui.showFieldError('login-email', 'Introduce un email válido');
+            hasError = true;
+        }
+        if (!password) {
+            this.ui.showFieldError('login-password', 'Introduce tu contraseña');
+            hasError = true;
+        }
+        if (hasError) return;
 
         try {
             const result = await this.authManager.login(email, password);
             if (result.success && result.data) {
                 this.showMainMenu();
                 this.updateUserInfo(result.data.user);
+            } else if (result.message === 'Credenciales inválidas') {
+                this.ui.flagField('login-email');
+                this.ui.showFieldError('login-password', 'Email o contraseña incorrectos');
             } else {
                 this.ui.showMessage(result.message || 'Error en el login', 'error');
             }
@@ -365,15 +388,37 @@ class GameApp {
     }
 
     private async handleRegister(): Promise<void> {
-        const username = (document.getElementById('register-username') as HTMLInputElement).value;
-        const email = (document.getElementById('register-email') as HTMLInputElement).value;
+        this.ui.clearFormErrors('register-form');
+        const username = (document.getElementById('register-username') as HTMLInputElement).value.trim();
+        const email = (document.getElementById('register-email') as HTMLInputElement).value.trim();
         const password = (document.getElementById('register-password') as HTMLInputElement).value;
+
+        let hasError = false;
+        if (username.length < 3) {
+            this.ui.showFieldError('register-username', 'El usuario debe tener al menos 3 caracteres');
+            hasError = true;
+        }
+        if (!email) {
+            this.ui.showFieldError('register-email', 'Introduce tu email');
+            hasError = true;
+        } else if (!this.isValidEmail(email)) {
+            this.ui.showFieldError('register-email', 'Introduce un email válido');
+            hasError = true;
+        }
+        if (password.length < 6) {
+            this.ui.showFieldError('register-password', 'La contraseña debe tener al menos 6 caracteres');
+            hasError = true;
+        }
+        if (hasError) return;
 
         try {
             const result = await this.authManager.register(username, email, password);
             if (result.success && result.data) {
                 this.showMainMenu();
                 this.updateUserInfo(result.data.user);
+            } else if (result.message === 'Usuario ya existe') {
+                this.ui.showFieldError('register-username', 'Ese usuario o email ya está registrado');
+                this.ui.flagField('register-email');
             } else {
                 this.ui.showMessage(result.message || 'Error en el registro', 'error');
             }
@@ -428,20 +473,21 @@ class GameApp {
     }
 
     private async handleForgotPassword(): Promise<void> {
+        this.ui.clearFormErrors('forgot-form');
         const email = (document.getElementById('forgot-email') as HTMLInputElement).value.trim();
         if (!email) {
-            this.ui.showMessage('Introduce tu email', 'error');
+            this.ui.showFieldError('forgot-email', 'Introduce tu email');
+            return;
+        }
+        if (!this.isValidEmail(email)) {
+            this.ui.showFieldError('forgot-email', 'Introduce un email válido');
             return;
         }
 
         try {
             const result = await this.authManager.forgotPassword(email);
             if (result.success) {
-                this.ui.showMessage(
-                    result.data?.message || 'Si el email está registrado, recibirás un enlace.',
-                    'success'
-                );
-                this.switchAuthTab('login');
+                window.location.href = './gracias.html?tipo=reset';
             } else {
                 this.ui.showMessage(result.message || 'No se pudo procesar la solicitud', 'error');
             }
@@ -451,17 +497,21 @@ class GameApp {
     }
 
     private async handleResetPassword(): Promise<void> {
+        this.ui.clearFormErrors('reset-form');
         const password = (document.getElementById('reset-password') as HTMLInputElement).value;
         const confirm = (document.getElementById('reset-password-confirm') as HTMLInputElement).value;
 
+        let hasError = false;
         if (password.length < 6) {
-            this.ui.showMessage('La contraseña debe tener al menos 6 caracteres', 'error');
-            return;
+            this.ui.showFieldError('reset-password', 'La contraseña debe tener al menos 6 caracteres');
+            hasError = true;
         }
-        if (password !== confirm) {
-            this.ui.showMessage('Las contraseñas no coinciden', 'error');
-            return;
+        if (confirm !== password) {
+            this.ui.showFieldError('reset-password-confirm', 'Las contraseñas no coinciden');
+            hasError = true;
         }
+        if (hasError) return;
+
         if (!this.resetToken) {
             this.ui.showMessage('Enlace de reseteo no válido', 'error');
             return;
