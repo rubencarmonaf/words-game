@@ -1,4 +1,4 @@
-// Comprime y redimensiona las imágenes de client/assets.
+// Comprime y redimensiona las imágenes de client-angular/public/assets.
 // Uso: npm run compress:images
 import sharp from 'sharp';
 import { readdir, stat } from 'fs/promises';
@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ASSETS_DIR = path.join(__dirname, '..', 'client', 'assets');
+const ASSETS_DIR = path.join(__dirname, '..', 'client-angular', 'public', 'assets');
 
 // Los logos se muestran como mucho a ~60px de alto; 240px cubre pantallas retina de sobra.
 const MAX_HEIGHT = 240;
