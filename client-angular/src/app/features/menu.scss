@@ -180,6 +180,11 @@
     --card-accent-soft: rgba(95, 217, 122, 0.1);
     --card-accent-border: rgba(95, 217, 122, 0.24);
   }
+  &--completed {
+    --card-accent: var(--line-lime);
+    --card-accent-soft: rgba(95, 217, 122, 0.1);
+    --card-accent-border: rgba(95, 217, 122, 0.24);
+  }
 
   h3 {
     font-family: var(--ww-serif);
@@ -192,6 +197,12 @@
     color: var(--ww-muted);
     pointer-events: none;
   }
+}
+.mode-daily-countdown {
+  font-family: var(--ww-mono);
+  font-size: 0.76rem !important;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
 }
 .mode-icon {
   display: inline-flex;

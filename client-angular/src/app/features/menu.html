@@ -57,12 +57,23 @@
           <p>Partida cadena con amigos</p>
         </button>
 
-        <button type="button" class="mode-btn mode-btn--amber" routerLink="/daily-challenge">
+        <button
+          type="button"
+          class="mode-btn"
+          [class.mode-btn--amber]="!dailyStatus()?.isCompleted"
+          [class.mode-btn--completed]="dailyStatus()?.isCompleted"
+          routerLink="/daily-challenge"
+        >
           <span class="mode-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 002.5 2.5z" /></svg>
           </span>
           <h3>Reto diario</h3>
-          <p>2 min</p>
+          @if (dailyStatus()?.isCompleted) {
+            <p>✅ Completado</p>
+            <p class="mode-daily-countdown">Próximo reto en: {{ dailyCountdownDisplay() }}</p>
+          } @else {
+            <p>2 min</p>
+          }
         </button>
       </div>
     </div>
