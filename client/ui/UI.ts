@@ -1,3 +1,15 @@
+const SCREEN_TITLES: Record<string, string> = {
+    'landing-screen': 'WordWars — Batallas de palabras en tiempo real',
+    'auth-screen': 'Iniciar sesión · WordWars',
+    'main-menu': 'Menú · WordWars',
+    'lobby-screen': 'Sala de espera · WordWars',
+    'daily-challenge-screen': 'Reto diario · WordWars',
+    'game-setup': 'Configurar partida · WordWars',
+    'matchmaking-screen': 'Buscando partida · WordWars',
+    'game-screen': 'Partida en curso · WordWars',
+    'results-screen': 'Resultados · WordWars'
+};
+
 export class UI {
     showScreen(screenId: string): void {
         // Hide all screens
@@ -10,6 +22,56 @@ export class UI {
         if (targetScreen) {
             targetScreen.classList.add('active');
         }
+
+        document.title = SCREEN_TITLES[screenId] || 'WordWars';
+    }
+
+    // ---------- Estados de error en formularios ----------
+
+    showFieldError(inputId: string, message: string): void {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        if (!input) return;
+
+        const group = input.closest('.input-group');
+        if (!group) return;
+
+        group.classList.add('has-error');
+
+        let errorEl = group.querySelector('.field-error');
+        if (!errorEl) {
+            errorEl = document.createElement('span');
+            errorEl.className = 'field-error';
+            group.appendChild(errorEl);
+        }
+        errorEl.textContent = message;
+    }
+
+    // Marca el campo como inválido (borde rojo) sin añadir texto de error propio,
+    // útil para acompañar a otro campo que ya muestra el mensaje (p.ej. email+password).
+    flagField(inputId: string): void {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        input?.closest('.input-group')?.classList.add('has-error');
+    }
+
+    clearFieldError(inputId: string): void {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        if (!input) return;
+
+        const group = input.closest('.input-group');
+        if (!group) return;
+
+        group.classList.remove('has-error');
+        group.querySelector('.field-error')?.remove();
+    }
+
+    clearFormErrors(formId: string): void {
+        const form = document.getElementById(formId);
+        if (!form) return;
+
+        form.querySelectorAll('.input-group.has-error').forEach(group => {
+            group.classList.remove('has-error');
+            group.querySelector('.field-error')?.remove();
+        });
     }
 
     showMessage(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
