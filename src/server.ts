@@ -494,7 +494,8 @@ app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
       userId: req.user.userId,
       username: user.username,
       elo: user.elo,
-      socketId: undefined
+      socketId: undefined,
+      queuedAt: Date.now()
     });
 
     res.json({ success: true, message: 'Buscando partida...' });
@@ -823,9 +824,23 @@ io.on('connection', (socket) => {
   });
 });
 
+// El rango de ELO aceptable empieza estrecho (partidas parejas) y se ensancha
+// cuanto más lleva alguien esperando, para no dejar a nadie en cola para siempre
+// si no hay rivales cercanos.
+const MATCHMAKING_INITIAL_RANGE = 100;
+const MATCHMAKING_RANGE_STEP = 50;
+const MATCHMAKING_STEP_MS = 5000;
+
+function matchmakingRange(player: MatchmakingPlayer): number {
+  const waited = Date.now() - player.queuedAt;
+  return MATCHMAKING_INITIAL_RANGE + Math.floor(waited / MATCHMAKING_STEP_MS) * MATCHMAKING_RANGE_STEP;
+}
+
 // Matchmaking logic
 setInterval(() => {
-  const players = Array.from(matchmakingQueue.values());
+  // Ordenados por ELO: los rivales más parecidos quedan adyacentes, así el
+  // bucle encuentra primero los emparejamientos más justos antes que los amplios
+  const players = Array.from(matchmakingQueue.values()).sort((a, b) => a.elo - b.elo);
 
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
@@ -838,8 +853,10 @@ setInterval(() => {
         continue;
       }
 
-      // Check if ELO difference is acceptable (within 200 points)
-      if (Math.abs(player1.elo - player2.elo) <= 200) {
+      // Rango aceptado: el más generoso de los dos, para que quien lleva más
+      // tiempo esperando no se quede bloqueado por el umbral, aún estrecho, del otro
+      const allowedRange = Math.max(matchmakingRange(player1), matchmakingRange(player2));
+      if (Math.abs(player1.elo - player2.elo) <= allowedRange) {
         // Create match
         const gameId = new mongoose.Types.ObjectId().toString();
 
