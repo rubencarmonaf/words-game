@@ -3,6 +3,7 @@ import { WordGame } from './game/WordGame';
 import { AuthManager } from './auth/AuthManager';
 import { UI } from './ui/UI';
 import { SocketManager } from './socket/SocketManager';
+import { AvatarOptions, DEFAULT_AVATAR } from '../src/types';
 import './site-notice';
 
 // Initialize the game
@@ -13,8 +14,7 @@ class GameApp {
     private wordGame: WordGame;
     private resetToken: string | null = null;
     private currentUser: any = null;
-    private selectedAvatarColor: string = 'cobalt';
-    private selectedAvatarIcon: string = 'target';
+    private selectedAvatar: AvatarOptions = { ...DEFAULT_AVATAR };
 
     // Daily Challenge properties
     private dailyChallenge: {
@@ -595,24 +595,6 @@ class GameApp {
             this.toggleProfileEdit(false);
         });
 
-        document.querySelectorAll('.ww-color-swatch').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.ww-color-swatch').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                this.selectedAvatarColor = (btn as HTMLElement).dataset.color!;
-                this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
-            });
-        });
-
-        document.querySelectorAll('.ww-icon-swatch').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.ww-icon-swatch').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                this.selectedAvatarIcon = (btn as HTMLElement).dataset.icon!;
-                this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
-            });
-        });
-
         document.getElementById('profile-edit-form')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveProfile();
@@ -623,8 +605,7 @@ class GameApp {
         const result = await this.authManager.getProfile();
         if (result.success && result.data) {
             this.currentUser = result.data;
-            this.selectedAvatarColor = result.data.avatarColor || 'cobalt';
-            this.selectedAvatarIcon = result.data.avatarIcon || 'target';
+            this.selectedAvatar = { ...result.data.avatar };
             this.toggleProfileEdit(false);
             this.ui.showProfile(result.data);
         } else {
@@ -638,13 +619,18 @@ class GameApp {
         if (show && this.currentUser) {
             const usernameInput = document.getElementById('profile-username-input') as HTMLInputElement;
             if (usernameInput) usernameInput.value = this.currentUser.username;
-            this.selectedAvatarColor = this.currentUser.avatarColor || 'cobalt';
-            this.selectedAvatarIcon = this.currentUser.avatarIcon || 'target';
-            this.ui.setAvatarPickerSelection(this.selectedAvatarColor, this.selectedAvatarIcon);
-            this.ui.applyAvatar('profile-avatar', this.selectedAvatarColor, this.selectedAvatarIcon, 'lg');
+            this.selectedAvatar = { ...this.currentUser.avatar };
+            this.ui.buildAvatarEditor(
+                () => this.selectedAvatar,
+                (field, value) => {
+                    this.selectedAvatar = { ...this.selectedAvatar, [field]: value };
+                    this.ui.applyAvatarSvg('profile-avatar', this.selectedAvatar);
+                }
+            );
+            this.ui.applyAvatarSvg('profile-avatar', this.selectedAvatar);
         } else if (!show && this.currentUser) {
             // Revert any unsaved preview back to the last saved avatar
-            this.ui.applyAvatar('profile-avatar', this.currentUser.avatarColor || 'cobalt', this.currentUser.avatarIcon || 'target', 'lg');
+            this.ui.applyAvatarSvg('profile-avatar', this.currentUser.avatar);
         }
     }
 
@@ -654,8 +640,7 @@ class GameApp {
 
         const result = await this.authManager.updateProfile({
             username,
-            avatarColor: this.selectedAvatarColor,
-            avatarIcon: this.selectedAvatarIcon
+            avatar: this.selectedAvatar
         });
 
         if (result.success && result.data) {

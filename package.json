@@ -13,6 +13,8 @@
     "compress:images": "node scripts/compress-images.mjs"
   },
   "dependencies": {
+    "@dicebear/avataaars": "^9.4.3",
+    "@dicebear/core": "^9.4.3",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

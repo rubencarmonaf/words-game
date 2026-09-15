@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { IUser } from '../types';
+import { IUser, DEFAULT_AVATAR } from '../types';
 
 const userSchema = new Schema<IUser>({
   username: {
@@ -40,15 +40,9 @@ const userSchema = new Schema<IUser>({
     type: Number,
     default: 0
   },
-  avatarColor: {
-    type: String,
-    enum: ['cobalt', 'scarlet', 'amber', 'lime'],
-    default: 'cobalt'
-  },
-  avatarIcon: {
-    type: String,
-    enum: ['target', 'link', 'bolt', 'users', 'flame', 'star'],
-    default: 'target'
+  avatar: {
+    type: Schema.Types.Mixed,
+    default: () => ({ ...DEFAULT_AVATAR })
   },
   createdAt: {
     type: Date,
@@ -124,8 +118,7 @@ userSchema.methods.toPublicJSON = function() {
     gamesPlayed: this.gamesPlayed,
     gamesWon: this.gamesWon,
     winRate: this.winRate,
-    avatarColor: this.avatarColor,
-    avatarIcon: this.avatarIcon
+    avatar: this.avatar || { ...DEFAULT_AVATAR }
   };
 };
 

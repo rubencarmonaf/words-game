@@ -1,3 +1,7 @@
+import { AvatarOptions } from '../../src/types';
+import { renderAvatarSvg, renderAvatarPreview } from '../avatar/renderAvatar';
+import { AVATAR_CATEGORIES } from '../avatar/categories';
+
 const SCREEN_TITLES: Record<string, string> = {
     'landing-screen': 'WordWars — Batallas de palabras en tiempo real',
     'auth-screen': 'Iniciar sesión · WordWars',
@@ -10,21 +14,6 @@ const SCREEN_TITLES: Record<string, string> = {
     'results-screen': 'Resultados · WordWars',
     'profile-screen': 'Perfil · WordWars'
 };
-
-// Iconos reutilizados del set de modos de juego + una estrella para el picker de avatar
-const AVATAR_ICONS: Record<string, string> = {
-    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
-    link: '<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>',
-    bolt: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
-    users: '<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',
-    flame: '<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 002.5 2.5z"/>',
-    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
-};
-
-function avatarSvg(icon: string): string {
-    const path = AVATAR_ICONS[icon] || AVATAR_ICONS.target;
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
-}
 
 // Los tiers de ELO son la fuente del "nivel" del carnet de perfil — ningún dato inventado,
 // reutilizan el mismo significado de color de línea que ya tienen los modos de juego.
@@ -313,15 +302,14 @@ export class UI {
 
     // ---------- Identidad / perfil ----------
 
-    applyAvatar(elementId: string, color: string, icon: string, size: 'sm' | 'lg'): void {
+    applyAvatarSvg(elementId: string, avatar: AvatarOptions): void {
         const el = document.getElementById(elementId);
         if (!el) return;
-        el.className = `ww-avatar ww-avatar--${size} ww-avatar--${color}`;
-        el.innerHTML = avatarSvg(icon);
+        el.innerHTML = renderAvatarSvg(avatar);
     }
 
     updateIdentityChip(user: any): void {
-        this.applyAvatar('user-avatar-chip', user.avatarColor || 'cobalt', user.avatarIcon || 'target', 'sm');
+        this.applyAvatarSvg('user-avatar-chip', user.avatar);
         const name = document.getElementById('user-welcome');
         if (name) name.textContent = user.username;
     }
@@ -332,7 +320,7 @@ export class UI {
     }
 
     renderProfile(user: any): void {
-        this.applyAvatar('profile-avatar', user.avatarColor || 'cobalt', user.avatarIcon || 'target', 'lg');
+        this.applyAvatarSvg('profile-avatar', user.avatar);
 
         const nameEl = document.getElementById('profile-username');
         if (nameEl) nameEl.textContent = user.username;
@@ -365,15 +353,54 @@ export class UI {
 
         const usernameInput = document.getElementById('profile-username-input') as HTMLInputElement;
         if (usernameInput) usernameInput.value = user.username;
-        this.setAvatarPickerSelection(user.avatarColor || 'cobalt', user.avatarIcon || 'target');
     }
 
-    setAvatarPickerSelection(color: string, icon: string): void {
-        document.querySelectorAll('.ww-color-swatch').forEach(btn => {
-            btn.classList.toggle('selected', (btn as HTMLElement).dataset.color === color);
+    // ---------- Editor de avatar (pestañas + rejilla de opciones) ----------
+    private activeAvatarTab: keyof AvatarOptions = 'top';
+
+    buildAvatarEditor(getCurrent: () => AvatarOptions, onSelect: (field: keyof AvatarOptions, value: string) => void): void {
+        const tabsEl = document.getElementById('avatar-tabs');
+        if (!tabsEl) return;
+
+        tabsEl.innerHTML = AVATAR_CATEGORIES.map(cat => `
+            <button type="button" class="ww-avatar-tab${cat.field === this.activeAvatarTab ? ' selected' : ''}" data-field="${cat.field}">${cat.label}</button>
+        `).join('');
+
+        tabsEl.querySelectorAll<HTMLElement>('.ww-avatar-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.activeAvatarTab = btn.dataset.field as keyof AvatarOptions;
+                tabsEl.querySelectorAll('.ww-avatar-tab').forEach(b => b.classList.toggle('selected', b === btn));
+                this.renderAvatarPanel(getCurrent, onSelect);
+            });
         });
-        document.querySelectorAll('.ww-icon-swatch').forEach(btn => {
-            btn.classList.toggle('selected', (btn as HTMLElement).dataset.icon === icon);
+
+        this.renderAvatarPanel(getCurrent, onSelect);
+    }
+
+    private renderAvatarPanel(getCurrent: () => AvatarOptions, onSelect: (field: keyof AvatarOptions, value: string) => void): void {
+        const optionsEl = document.getElementById('avatar-options');
+        if (!optionsEl) return;
+
+        const current = getCurrent();
+        const category = AVATAR_CATEGORIES.find(c => c.field === this.activeAvatarTab)!;
+
+        if (category.kind === 'color') {
+            optionsEl.innerHTML = `<div class="ww-avatar-swatch-grid">${category.options.map(opt => `
+                <button type="button" class="ww-avatar-swatch${current[category.field] === opt ? ' selected' : ''}" data-value="${opt}" style="background:#${opt}" aria-label="Color ${opt}"></button>
+            `).join('')}</div>`;
+        } else {
+            optionsEl.innerHTML = `<div class="ww-avatar-thumb-grid">${category.options.map(opt => `
+                <button type="button" class="ww-avatar-thumb${current[category.field] === opt ? ' selected' : ''}" data-value="${opt}" aria-label="${opt === '' ? (category.noneLabel || 'Ninguno') : opt}">
+                    ${opt === '' ? `<span class="ww-avatar-thumb-none">${category.noneLabel || 'Ninguno'}</span>` : renderAvatarPreview(current, category.field, opt)}
+                </button>
+            `).join('')}</div>`;
+        }
+
+        optionsEl.querySelectorAll<HTMLElement>('[data-value]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                onSelect(category.field, btn.dataset.value || '');
+                this.renderAvatarPanel(getCurrent, onSelect);
+            });
         });
     }
 
