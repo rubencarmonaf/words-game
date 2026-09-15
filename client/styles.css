@@ -694,10 +694,6 @@ body {
 .daily-challenge-content header h1 {
     font-size: 2.5rem;
     margin-bottom: 10px;
-    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
 
 .daily-challenge-info {
@@ -719,7 +715,7 @@ body {
 }
 
 .challenge-prefix span {
-    color: #ff6b6b;
+    color: var(--line-amber);
     font-weight: bold;
     font-size: 2rem;
 }
@@ -734,19 +730,20 @@ body {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+    background: var(--line-amber);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.5);
     animation: pulse 2s infinite;
 }
 
 .timer-circle span {
+    font-family: var(--ww-mono);
     font-size: 1.8rem;
-    font-weight: bold;
-    color: white;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    font-weight: 700;
+    color: var(--ww-accent-ink);
+    font-variant-numeric: tabular-nums;
 }
 
 @keyframes pulse {
@@ -779,7 +776,6 @@ body {
     padding: 10px 15px;
     background: #f8f9fa;
     border-radius: 10px;
-    border-left: 4px solid #ff6b6b;
 }
 
 .stat-label {
@@ -2178,7 +2174,6 @@ body {
 .ww-trust-dot {
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--line-lime);
-    box-shadow: 0 0 0 4px rgba(95, 217, 122, 0.18);
 }
 
 /* ---------- Hero visual: panel de ruta en vivo ---------- */
@@ -2202,14 +2197,13 @@ body {
     background: var(--ww-accent);
     border-radius: 50%;
     border: 4px solid var(--ww-bg);
-    box-shadow: 0 16px 34px -10px rgba(245, 166, 35, 0.55);
+    box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.6);
 }
 .ww-roundel--a { top: -18px; left: -12px; animation: ww-bob 5s ease-in-out infinite; }
 .ww-roundel--b {
     bottom: -14px; right: 6px;
     background: var(--line-scarlet);
     color: #fff;
-    box-shadow: 0 16px 34px -10px rgba(239, 74, 95, 0.55);
     animation: ww-bob 6s ease-in-out infinite 0.5s;
 }
 
@@ -2370,7 +2364,7 @@ body {
     height: 3px;
     background: var(--card-accent);
 }
-.ww-card--scarlet { --card-accent: var(--line-scarlet); --card-accent-soft: rgba(239, 74, 95, 0.1); --card-accent-border: rgba(239, 74, 95, 0.24); }
+.ww-card--scarlet { --card-accent: var(--line-scarlet); --card-accent-soft: rgba(204, 63, 82, 0.1); --card-accent-border: rgba(204, 63, 82, 0.24); }
 .ww-card--amber { --card-accent: var(--line-amber); --card-accent-soft: rgba(245, 166, 35, 0.1); --card-accent-border: rgba(245, 166, 35, 0.24); }
 .ww-card--lime { --card-accent: var(--line-lime); --card-accent-soft: rgba(95, 217, 122, 0.1); --card-accent-border: rgba(95, 217, 122, 0.24); }
 .ww-card:hover {
@@ -2647,14 +2641,14 @@ body {
     /* Tinta — blanco porcelana */
     --ww-text: #f1efe7;
     --ww-muted: #a3b4cc;
-    --ww-faint: #6b7d9b;
+    --ww-faint: #7183a3;
 
     /* Acento primario (CTAs, foco, enlaces): ámbar de panel de salidas */
     --ww-accent: #f5a623;
     --ww-accent-ink: #0a1628;
 
     /* Líneas con significado propio de juego */
-    --line-scarlet: #ef4a5f;  /* Versus / competitivo / crítico */
+    --line-scarlet: #cc3f52;  /* Versus / competitivo / crítico — oscurecido para 4.5:1 con texto blanco */
     --line-cobalt: #4a90e2;   /* estructural / navegación */
     --line-amber: #f5a623;    /* reto diario / urgencia */
     --line-lime: #5fd97a;     /* Solo / amistoso / éxito */
@@ -2689,10 +2683,9 @@ body {
 .btn-primary {
     background: var(--ww-accent);
     color: var(--ww-accent-ink);
-    box-shadow: 0 8px 22px rgba(245, 166, 35, 0.22);
 }
 .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 12px 28px rgba(245, 166, 35, 0.32);
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.6);
     transform: translateY(-1px);
 }
 .btn-secondary {
@@ -2707,10 +2700,9 @@ body {
 .btn-danger {
     background: var(--line-scarlet);
     color: #fff;
-    box-shadow: 0 8px 22px rgba(239, 74, 95, 0.25);
 }
 .btn-danger:hover:not(:disabled) {
-    box-shadow: 0 12px 28px rgba(239, 74, 95, 0.35);
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.6);
     transform: translateY(-1px);
 }
 
@@ -2858,7 +2850,7 @@ body {
     height: 3px;
     background: var(--card-accent);
 }
-.mode-btn--scarlet { --card-accent: var(--line-scarlet); --card-accent-soft: rgba(239, 74, 95, 0.1); --card-accent-border: rgba(239, 74, 95, 0.24); }
+.mode-btn--scarlet { --card-accent: var(--line-scarlet); --card-accent-soft: rgba(204, 63, 82, 0.1); --card-accent-border: rgba(204, 63, 82, 0.24); }
 .mode-btn--amber { --card-accent: var(--line-amber); --card-accent-soft: rgba(245, 166, 35, 0.1); --card-accent-border: rgba(245, 166, 35, 0.24); }
 .mode-btn--lime { --card-accent: var(--line-lime); --card-accent-soft: rgba(95, 217, 122, 0.1); --card-accent-border: rgba(95, 217, 122, 0.24); }
 .mode-btn:hover {
@@ -2981,13 +2973,13 @@ body {
 .daily-challenge-info .stat,
 .challenge-stats .stat {
     background: var(--ww-surface);
-    border-left: 4px solid var(--ww-fire);
+    border: 1px solid var(--ww-line);
 }
 .challenge-stats .stat-label { color: var(--ww-muted); }
-.challenge-stats .stat-value { color: var(--ww-fire); }
+.challenge-stats .stat-value { color: var(--ww-fire); font-family: var(--ww-mono); font-variant-numeric: tabular-nums; }
 .daily-challenge-content .words-list .word-item {
-    background: rgba(255, 122, 60, 0.08);
-    border: 2px solid rgba(255, 122, 60, 0.35);
+    background: rgba(245, 166, 35, 0.08);
+    border: 2px solid rgba(245, 166, 35, 0.35);
     color: var(--ww-fire);
 }
 .daily-challenge-btn {
@@ -3004,7 +2996,6 @@ body {
 /* ---------- Modales ---------- */
 .modal-content {
     background: var(--ww-surface);
-    border: 1px solid var(--ww-line-strong);
     box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.85);
 }
 .modal-header {
@@ -3436,7 +3427,7 @@ body {
     color: var(--ww-text);
     font-variant-numeric: tabular-nums;
 }
-.board-badge--scarlet { color: var(--line-scarlet); border-color: rgba(239, 74, 95, 0.4); }
+.board-badge--scarlet { color: var(--line-scarlet); border-color: rgba(204, 63, 82, 0.4); }
 .board-badge--amber { color: var(--line-amber); border-color: rgba(245, 166, 35, 0.4); }
 .board-badge--lime { color: var(--line-lime); border-color: rgba(95, 217, 122, 0.4); }
 .board-badge--cobalt { color: var(--line-cobalt); border-color: rgba(74, 144, 226, 0.4); }
