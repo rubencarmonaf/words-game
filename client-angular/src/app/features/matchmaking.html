@@ -1,1 +1,8 @@
-<p>matchmaking works!</p>
+<div class="matchmaking-content">
+  <h2>Buscando partida...</h2>
+  <div class="ww-search-track" aria-hidden="true">
+    <span class="ww-search-track-dot"></span>
+  </div>
+  <p class="ww-search-status" [class.ww-search-status--out]="fadingOut()">{{ phrases[phraseIndex()] }}</p>
+  <button type="button" class="btn btn-danger" (click)="cancel()">Cancelar</button>
+</div>

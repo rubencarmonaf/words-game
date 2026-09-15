@@ -1,9 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Game, GameMode } from '../core/services/game';
+import { Game } from '../core/services/game';
 
-const TITLES: Record<GameMode, string> = {
+/** game-setup only ever handles the local modes — versus skips straight from
+ * the menu to /play/matchmaking, it never has a setup form. */
+type LocalGameMode = 'solo' | 'cadena' | 'friendly';
+
+const TITLES: Record<LocalGameMode, string> = {
   solo: 'Modo Solo - Práctica',
   cadena: 'Modo Cadena - Eliminación',
   friendly: 'Juego con Amigos',
@@ -24,7 +28,9 @@ export class GameSetup {
   private readonly game = inject(Game);
   private readonly fb = inject(FormBuilder);
 
-  protected readonly mode = signal<GameMode>((this.route.snapshot.paramMap.get('mode') as GameMode) || 'solo');
+  protected readonly mode = signal<LocalGameMode>(
+    (this.route.snapshot.paramMap.get('mode') as LocalGameMode) || 'solo',
+  );
   protected readonly title = computed(() => TITLES[this.mode()]);
   protected readonly showPlayerConfig = computed(() => this.mode() !== 'solo');
   protected readonly showPlayerNames = computed(() => this.mode() === 'friendly');
