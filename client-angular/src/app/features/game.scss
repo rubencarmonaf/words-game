@@ -1,0 +1,237 @@
+:host {
+  display: block;
+  max-width: 760px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.game-header,
+.game-content {
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line);
+  border-radius: var(--ww-radius);
+  box-shadow: 0 20px 50px -30px rgba(0, 0, 0, 0.8);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  margin-bottom: 0;
+}
+
+.game-info {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+#current-prefix {
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+#game-timer {
+  background: var(--ww-bg-2);
+  color: var(--ww-text);
+  border: 1px solid var(--ww-line);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-stats {
+  color: var(--ww-muted);
+  font-weight: 600;
+}
+
+/* Riel ambiental: un tren avanzando mientras la partida está en curso. */
+.ww-game-rail {
+  position: relative;
+  height: 2px;
+  margin: 14px 0 20px;
+  background: var(--ww-line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ww-game-rail-dot {
+  position: absolute;
+  top: 50%;
+  left: -8px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--ww-accent);
+  animation: ww-game-rail-travel 6s linear infinite;
+}
+@keyframes ww-game-rail-travel {
+  0% {
+    left: -8px;
+  }
+  100% {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ww-game-rail-dot {
+    animation: none;
+    left: 50%;
+  }
+}
+
+.game-content {
+  padding: 30px;
+}
+
+.word-input-section {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+.word-input-section input {
+  flex: 1;
+  padding: 15px 20px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: 10px;
+  color: var(--ww-text);
+  font-size: 1.1rem;
+}
+.word-input-section input::placeholder {
+  color: var(--ww-faint);
+}
+.word-input-section input:focus {
+  outline: none;
+  border-color: var(--ww-accent);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.16);
+}
+
+/* Micro-shake cuando una palabra se rechaza */
+@keyframes ww-input-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+.word-input--shake {
+  animation: ww-input-shake 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  border-color: var(--line-scarlet) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-input--shake {
+    animation: none;
+  }
+}
+
+.words-display h3 {
+  margin-bottom: 15px;
+  color: var(--ww-text);
+}
+
+#words-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.word-item {
+  position: relative;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.22);
+  color: var(--ww-text);
+  text-align: left;
+  padding: 8px 12px 8px 22px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.word-item::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--line-amber);
+}
+
+/* Palabra "llegando" a la lista */
+@keyframes ww-stop-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.word-item--enter {
+  animation: ww-stop-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-item--enter {
+    animation: none;
+  }
+}
+
+.game-controls {
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Timer */
+@keyframes ww-timer-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.timer-warning {
+  animation: ww-timer-pulse 1s infinite;
+}
+.timer-danger {
+  background: var(--line-scarlet) !important;
+  color: #fff !important;
+  border-color: var(--line-scarlet) !important;
+  animation: ww-timer-pulse 0.5s infinite;
+}
+
+@media (max-width: 768px) {
+  .word-input-section {
+    flex-direction: column;
+  }
+  .game-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+}

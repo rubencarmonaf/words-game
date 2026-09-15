@@ -15,7 +15,8 @@
 
 .input-group input[type='text'],
 .input-group input[type='email'],
-.input-group input[type='password'] {
+.input-group input[type='password'],
+.input-group input[type='number'] {
   width: 100%;
   padding: 12px 16px;
   background: var(--ww-bg-2);

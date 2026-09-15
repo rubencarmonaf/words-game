@@ -1,0 +1,53 @@
+:host {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px;
+}
+
+.setup-content {
+  width: 100%;
+  max-width: 480px;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: var(--ww-radius);
+  padding: 40px;
+  color: var(--ww-text);
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-size: 1.7rem;
+}
+
+.names-container {
+  display: grid;
+  gap: 10px;
+}
+
+.name-input {
+  padding: 10px 12px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: 8px;
+  color: var(--ww-text);
+  font-size: 0.9rem;
+}
+.name-input::placeholder {
+  color: var(--ww-faint);
+}
+.name-input:focus {
+  outline: none;
+  border-color: var(--ww-accent);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.16);
+}
+
+.button-group {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 30px;
+}
