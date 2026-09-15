@@ -1,5 +1,9 @@
 import { Document } from 'mongoose';
 
+// Avatar customization
+export type AvatarColor = 'cobalt' | 'scarlet' | 'amber' | 'lime';
+export type AvatarIcon = 'target' | 'link' | 'bolt' | 'users' | 'flame' | 'star';
+
 // User Types
 export interface IUser extends Document {
   _id: string;
@@ -10,6 +14,8 @@ export interface IUser extends Document {
   gamesPlayed: number;
   gamesWon: number;
   winRate: number;
+  avatarColor: AvatarColor;
+  avatarIcon: AvatarIcon;
   createdAt: Date;
   lastActive: Date;
   resetPasswordToken?: string | null;
@@ -27,6 +33,8 @@ export interface IUserPublic {
   gamesPlayed: number;
   gamesWon: number;
   winRate: number;
+  avatarColor: AvatarColor;
+  avatarIcon: AvatarIcon;
 }
 
 // Game Types

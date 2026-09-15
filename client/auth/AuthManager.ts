@@ -121,6 +121,13 @@ export class AuthManager {
         return this.makeRequest<IUserPublic>('/profile');
     }
 
+    async updateProfile(updates: { username?: string; avatarColor?: string; avatarIcon?: string }): Promise<ApiResponse<IUserPublic>> {
+        return this.makeRequest<IUserPublic>('/profile', {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    }
+
     async validateWord(word: string): Promise<ApiResponse<{ valid: boolean }>> {
         return this.makeRequest<{ valid: boolean }>('/validate-word', {
             method: 'POST',
