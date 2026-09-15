@@ -882,21 +882,24 @@ class GameApp {
         // Check if word starts with prefix (convert both to lowercase for comparison)
         if (!word.startsWith(this.dailyChallenge.prefix.toLowerCase())) {
             this.showDailyMessage(`La palabra debe empezar con "${this.dailyChallenge.prefix}"`, 'error');
+            this.ui.flashInputError('daily-word-input');
             return;
         }
-        
+
         // Check if word already used
         if (this.dailyChallenge.words.includes(word)) {
             this.showDailyMessage('Ya has usado esta palabra', 'error');
+            this.ui.flashInputError('daily-word-input');
             return;
         }
-        
+
         // Validate word with API
         try {
             const validation = await this.authManager.validateWord(word);
-            
+
             if (!validation.success || !validation.data?.valid) {
                 this.showDailyMessage('Palabra no válida en el diccionario español', 'error');
+                this.ui.flashInputError('daily-word-input');
                 return;
             }
             
@@ -934,16 +937,7 @@ class GameApp {
     }
 
     private updateDailyWordsList(): void {
-        // Update words list only when words change
-        const wordsList = document.getElementById('daily-words-list')!;
-        wordsList.innerHTML = '';
-        
-        this.dailyChallenge.words.forEach(word => {
-            const wordElement = document.createElement('div');
-            wordElement.className = 'word-item';
-            wordElement.textContent = word;
-            wordsList.appendChild(wordElement);
-        });
+        this.ui.syncWordItems('daily-words-list', this.dailyChallenge.words);
     }
 
     private showDailyMessage(message: string, type: 'success' | 'error'): void {

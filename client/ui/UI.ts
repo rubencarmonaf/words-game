@@ -10,8 +10,21 @@ const SCREEN_TITLES: Record<string, string> = {
     'results-screen': 'Resultados · WordWars'
 };
 
+const MATCHMAKING_PHRASES = [
+    'Buscando línea disponible…',
+    'Comprobando ELO similar…',
+    'Confirmando andén…',
+    'Casi listo para embarcar…'
+];
+
 export class UI {
+    private matchmakingInterval: number | null = null;
+
     showScreen(screenId: string): void {
+        if (screenId !== 'matchmaking-screen') {
+            this.stopMatchmakingSearch();
+        }
+
         // Hide all screens
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
@@ -149,16 +162,26 @@ export class UI {
     }
 
     updateWordsList(words: string[]): void {
-        const wordsList = document.getElementById('words-list');
-        if (!wordsList) return;
+        this.syncWordItems('words-list', words);
+    }
 
-        wordsList.innerHTML = '';
-        words.forEach(word => {
+    // Añade solo las palabras nuevas (con animación de "llegada"), en vez de
+    // reconstruir toda la lista en cada envío. Si la lista se acorta (partida
+    // nueva), se reconstruye sin animación.
+    syncWordItems(containerId: string, words: string[]): void {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (words.length < container.children.length) {
+            container.innerHTML = '';
+        }
+
+        for (let i = container.children.length; i < words.length; i++) {
             const wordElement = document.createElement('div');
-            wordElement.className = 'word-item';
-            wordElement.textContent = word;
-            wordsList.appendChild(wordElement);
-        });
+            wordElement.className = 'word-item word-item--enter';
+            wordElement.textContent = words[i];
+            container.appendChild(wordElement);
+        }
     }
 
     clearWordsList(): void {
@@ -174,6 +197,16 @@ export class UI {
             wordInput.value = '';
             wordInput.focus();
         }
+    }
+
+    // Micro-shake en el input cuando se rechaza una palabra (acompaña al toast, no lo sustituye)
+    flashInputError(inputId: string): void {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        if (!input) return;
+        input.classList.remove('word-input--shake');
+        void input.offsetWidth; // reinicia la animación si se dispara dos veces seguidas
+        input.classList.add('word-input--shake');
+        window.setTimeout(() => input.classList.remove('word-input--shake'), 900);
     }
 
     showGameSetup(mode: string): void {
@@ -207,6 +240,30 @@ export class UI {
 
     showMatchmaking(): void {
         this.showScreen('matchmaking-screen');
+        this.startMatchmakingSearch();
+    }
+
+    private startMatchmakingSearch(): void {
+        const status = document.getElementById('matchmaking-status');
+        if (!status) return;
+
+        let i = 0;
+        status.textContent = MATCHMAKING_PHRASES[0];
+        this.matchmakingInterval = window.setInterval(() => {
+            i = (i + 1) % MATCHMAKING_PHRASES.length;
+            status.classList.add('ww-search-status--out');
+            window.setTimeout(() => {
+                status.textContent = MATCHMAKING_PHRASES[i];
+                status.classList.remove('ww-search-status--out');
+            }, 200);
+        }, 2600);
+    }
+
+    private stopMatchmakingSearch(): void {
+        if (this.matchmakingInterval !== null) {
+            window.clearInterval(this.matchmakingInterval);
+            this.matchmakingInterval = null;
+        }
     }
 
     showGame(): void {

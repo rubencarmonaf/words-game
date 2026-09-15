@@ -160,12 +160,14 @@ export class WordGame {
         // Check if word starts with prefix first
         if (!word.toLowerCase().startsWith(this.gameState.prefix.toLowerCase())) {
             this.ui.showMessage(`La palabra debe empezar con "${this.gameState.prefix}"`, 'error');
+            this.ui.flashInputError('word-input');
             return;
         }
 
         // Check if word already used
         if (this.gameState.words.includes(word.toLowerCase())) {
             this.ui.showMessage('Ya has usado esta palabra', 'error');
+            this.ui.flashInputError('word-input');
             return;
         }
 
@@ -177,6 +179,7 @@ export class WordGame {
             
             if (!validation.success || !validation.data?.valid) {
                 this.ui.showMessage('Palabra no válida en el diccionario español', 'error');
+                this.ui.flashInputError('word-input');
                 this.ui.setLoading(false);
                 return;
             }

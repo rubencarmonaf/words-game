@@ -557,8 +557,10 @@
         <div id="matchmaking-screen" class="screen">
             <div class="matchmaking-content">
                 <h2>Buscando partida...</h2>
-                <div class="loading-spinner"></div>
-                <p>Encontrando un oponente con ELO similar</p>
+                <div class="ww-search-track" aria-hidden="true">
+                    <span class="ww-search-track-dot"></span>
+                </div>
+                <p id="matchmaking-status" class="ww-search-status">Buscando línea disponible…</p>
                 <button id="cancel-matchmaking" class="btn btn-danger">Cancelar</button>
             </div>
         </div>
