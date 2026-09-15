@@ -167,6 +167,14 @@ body {
     display: block;
 }
 
+/* El botón de envío es la única acción del formulario, bajo inputs a ancho
+   completo — debe igualar ese ancho o queda descuadrado, más estrecho y
+   pegado a la izquierda frente a ellos. */
+.auth-form button[type="submit"] {
+    width: 100%;
+    margin-top: 4px;
+}
+
 /* Main Menu */
 .menu-content {
     max-width: 1200px;
