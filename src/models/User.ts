@@ -25,7 +25,7 @@ const userSchema = new Schema<IUser>({
   },
   elo: {
     type: Number,
-    default: 1200,
+    default: 0,
     min: 0
   },
   gamesPlayed: {
@@ -74,22 +74,27 @@ userSchema.methods.updateStats = function(): void {
   this.lastActive = new Date();
 };
 
-// Calculate ELO change after a game
+// Calcula el cambio de ELO tras una partida. K=60 da ~30 puntos por victoria
+// entre rivales de ELO igual (más si el rival tiene más ELO, menos si tiene menos).
 userSchema.methods.updateElo = function(
-  opponentElo: number, 
-  won: boolean, 
-  kFactor: number = 32
+  opponentElo: number,
+  won: boolean,
+  kFactor: number = 60
 ): number {
   const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - this.elo) / 400));
   const actualScore = won ? 1 : 0;
   const eloChange = Math.round(kFactor * (actualScore - expectedScore));
-  
-  this.elo += eloChange;
+
+  // El ELO nunca baja de 0 (ver el validador `min` del esquema) — se aplica el
+  // cambio real tras el recorte, no el teórico, para que lo devuelto sea preciso.
+  const newElo = Math.max(0, this.elo + eloChange);
+  const appliedChange = newElo - this.elo;
+  this.elo = newElo;
   this.gamesPlayed += 1;
   if (won) this.gamesWon += 1;
-  
+
   this.updateStats();
-  return eloChange;
+  return appliedChange;
 };
 
 // Hash password before saving
