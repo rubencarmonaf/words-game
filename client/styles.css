@@ -2242,7 +2242,15 @@ body {
 .ww-route-station i { font-style: normal; color: var(--ww-accent); margin: 0 4px; }
 
 .ww-route-line { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 11px; }
-.ww-route-stop { display: flex; align-items: center; gap: 10px; font-size: 0.98rem; }
+.ww-route-stop {
+    display: flex; align-items: center; gap: 10px; font-size: 0.98rem;
+    opacity: 0;
+    animation: ww-stop-arrive 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ww-route-stop:nth-child(1) { animation-delay: 0.55s; }
+.ww-route-stop:nth-child(2) { animation-delay: 0.73s; }
+.ww-route-stop:nth-child(3) { animation-delay: 0.91s; }
+.ww-route-stop:nth-child(4) { animation-delay: 1.09s; }
 .ww-route-connector { width: 14px; height: 2px; background: var(--line-cobalt); opacity: 0.55; flex-shrink: 0; }
 .ww-route-word { flex: 1; color: var(--ww-text); font-weight: 500; }
 .ww-route-stop b {
@@ -2258,14 +2266,25 @@ body {
     color: var(--ww-accent);
     animation: ww-blink 1s steps(2) infinite;
 }
+/* La parada "en curso" pulsa — el tren sigue ahí, formando la palabra */
+.ww-route-stop--typing .station-tick {
+    animation: ww-tick-pulse 1.6s ease-in-out 1.4s infinite;
+}
 
 .ww-route-versus { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px dashed var(--ww-line-strong); }
 .ww-route-lane { display: grid; grid-template-columns: 44px 1fr 46px; align-items: center; gap: 12px; font-size: 0.8rem; }
 .ww-route-lane-label { color: var(--ww-muted); font-weight: 600; }
 .ww-route-lane-val { font-family: var(--ww-mono); font-weight: 700; text-align: right; color: var(--ww-text); font-variant-numeric: tabular-nums; }
 .ww-route-track { height: 6px; border-radius: 999px; background: rgba(178, 198, 224, 0.12); overflow: hidden; }
-.ww-route-track .line-rule { height: 100%; border-radius: 0; }
-.ww-route-lane--rival .line-rule { background: var(--ww-faint); }
+/* Las líneas de ELO llegan a su valor como una señal en vivo, no un ancho estático */
+.ww-route-track .line-rule {
+    height: 100%;
+    width: 100%;
+    border-radius: 0;
+    transform-origin: left center;
+    animation: ww-lane-fill 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.28s both;
+}
+.ww-route-lane--rival .line-rule { background: var(--ww-faint); animation-delay: 1.42s; }
 .ww-route-lane--rival .ww-route-lane-val { color: var(--ww-muted); }
 
 /* ---------- Tira de estadísticas ---------- */
@@ -2539,6 +2558,18 @@ body {
     0%, 49% { opacity: 1; }
     50%, 100% { opacity: 0; }
 }
+@keyframes ww-stop-arrive {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes ww-lane-fill {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(var(--fill, 1)); }
+}
+@keyframes ww-tick-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.45); }
+    50%      { box-shadow: 0 0 0 5px rgba(245, 166, 35, 0); }
+}
 
 /* Scroll reveal */
 #landing-screen [data-reveal] {
@@ -2590,8 +2621,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
     .ww-hero-copy, .ww-hero-visual, .ww-roundel, .ww-route-stop--typing i,
+    .ww-route-stop--typing .station-tick,
     .ww-modes.ww-in > .ww-card, .ww-steps.ww-in > .ww-step,
     .ww-stats.ww-in > .ww-stat { animation: none; }
+    .ww-route-stop { animation: none; opacity: 1; }
+    .ww-route-track .line-rule { animation: none; transform: scaleX(var(--fill, 1)); }
     #landing-screen [data-reveal] { transition: none; opacity: 1; transform: none; }
 }
 
@@ -3352,6 +3386,7 @@ body {
    ============================================================ */
 
 .line-rule {
+    display: block;
     height: 3px;
     border-radius: 999px;
     background: var(--line-cobalt);
