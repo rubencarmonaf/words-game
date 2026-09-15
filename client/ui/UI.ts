@@ -297,8 +297,18 @@ export class UI {
         }
     }
 
-    showGame(): void {
+    showGame(mode?: string): void {
         this.showScreen('game-screen');
+        const opponentScore = document.getElementById('opponent-score');
+        if (opponentScore) {
+            opponentScore.hidden = mode !== 'versus';
+            opponentScore.textContent = 'Rival: 0';
+        }
+    }
+
+    updateOpponentScore(score: number): void {
+        const el = document.getElementById('opponent-score');
+        if (el) el.textContent = `Rival: ${score}`;
     }
 
     // ---------- Identidad / perfil ----------

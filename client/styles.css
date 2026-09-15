@@ -2532,7 +2532,8 @@ body::before {
     color: var(--ww-text);
     border: 1px solid var(--ww-line);
 }
-.game-stats { color: var(--ww-muted); }
+.game-stats { color: var(--ww-muted); display: flex; gap: 16px; }
+.opponent-score { color: var(--line-scarlet); }
 
 /* Riel ambiental: un tren avanzando mientras la partida está en curso —
    la única señal de "algo pasa" en las pantallas de juego/reto diario. */
