@@ -2428,6 +2428,12 @@ body::before {
 }
 .user-welcome, #user-welcome { color: var(--ww-text); }
 
+/* La columna de amigos se quedaba corta (height: fit-content heredado) frente
+   a la de modos de juego, mucho más alta — ahora ambas llenan la misma fila
+   del grid, así "Amigos" deja de sentirse como una caja pequeña y suelta. */
+.friends-section { height: 100%; display: flex; flex-direction: column; }
+.friends-list { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
 /* Botones de modo de juego */
 .mode-btn {
     --card-accent: var(--line-cobalt);
