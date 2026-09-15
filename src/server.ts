@@ -114,14 +114,11 @@ app.post('/api/register', async (req, res) => {
       return;
     }
 
-    // Create user
+    // Create user (elo/gamesPlayed/gamesWon start at the schema defaults)
     const user = new User({
       username,
       email,
-      password, // Will be hashed by pre-save middleware
-      elo: 1200,
-      gamesPlayed: 0,
-      gamesWon: 0
+      password // Will be hashed by pre-save middleware
     });
 
     await user.save();
