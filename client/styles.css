@@ -659,13 +659,13 @@ body {
 }
 
 .daily-challenge-btn.completed {
-    background: linear-gradient(135deg, #4caf50, #45a049);
-    border-color: #4caf50;
+    background: var(--ww-surface-2);
+    border-color: var(--line-lime);
 }
 
 .daily-challenge-btn.completed:hover {
-    background: linear-gradient(135deg, #45a049, #3d8b40);
-    border-color: #45a049;
+    background: var(--ww-surface);
+    border-color: var(--line-lime);
 }
 
 .daily-challenge-btn .countdown-timer {
@@ -2943,9 +2943,21 @@ body {
 }
 .game-stats { color: var(--ww-muted); }
 #words-list .word-item {
-    background: rgba(205, 242, 74, 0.08);
-    border: 1px solid rgba(205, 242, 74, 0.22);
+    position: relative;
+    background: rgba(245, 166, 35, 0.08);
+    border: 1px solid rgba(245, 166, 35, 0.22);
     color: var(--ww-text);
+    text-align: left;
+    padding-left: 22px;
+}
+#words-list .word-item::before {
+    content: '';
+    position: absolute;
+    left: 9px; top: 50%;
+    width: 6px; height: 6px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: var(--line-amber);
 }
 
 /* ---------- Resultados ---------- */
@@ -2955,8 +2967,8 @@ body {
     color: var(--ww-text);
 }
 .player-result.winner {
-    background: linear-gradient(135deg, rgba(205, 242, 74, 0.16), rgba(205, 242, 74, 0.04));
-    border-color: rgba(205, 242, 74, 0.4);
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), rgba(245, 166, 35, 0.04));
+    border-color: rgba(245, 166, 35, 0.4);
     color: var(--ww-text);
 }
 .player-score {
@@ -2979,7 +2991,7 @@ body {
     color: var(--ww-fire);
 }
 .daily-challenge-btn {
-    border: 1px solid rgba(255, 122, 60, 0.4);
+    border: 1px solid rgba(245, 166, 35, 0.4);
 }
 
 /* ---------- Matchmaking ---------- */

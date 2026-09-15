@@ -234,7 +234,7 @@ export class UI {
                 const playerElement = document.createElement('div');
                 playerElement.className = index === 0 ? 'player-result winner' : 'player-result';
                 playerElement.innerHTML = `
-                    <span class="player-name">${index === 0 ? '🏆 ' : ''}${player.username}</span>
+                    <span class="player-name">${index === 0 ? '<span class="board-badge board-badge--amber">Ganador</span> ' : ''}${player.username}</span>
                     <span class="player-score">${player.score} palabras</span>
                 `;
                 resultsDisplay.appendChild(playerElement);
