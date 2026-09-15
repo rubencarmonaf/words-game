@@ -2124,21 +2124,6 @@ body {
 
 .ww-hero-copy { animation: ww-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-.ww-eyebrow {
-    display: inline-block;
-    font-family: var(--ww-mono);
-    font-size: 0.74rem;
-    font-weight: 500;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ww-accent);
-    padding: 7px 14px;
-    border: 1px solid var(--ww-line);
-    border-radius: 999px;
-    background: rgba(245, 166, 35, 0.06);
-    margin-bottom: 26px;
-}
-
 .ww-hero-title {
     font-family: var(--ww-serif);
     font-weight: 800;
@@ -3076,7 +3061,6 @@ body {
 
 /* Ajustes extra para móviles muy pequeños (<= 420px) */
 @media (max-width: 420px) {
-    .ww-eyebrow { font-size: 0.68rem; padding: 6px 11px; }
     .ww-hero-sub { font-size: 1.02rem; }
     .ww-stats { grid-template-columns: 1fr; gap: 18px; }
     .auth-content, .setup-content, .results-content, .matchmaking-content {
@@ -3209,8 +3193,6 @@ body {
     max-width: 520px;
 }
 
-.ww-center-card .ww-eyebrow { margin-bottom: 20px; }
-
 .ww-center-card h1 {
     font-family: var(--ww-serif);
     font-weight: 700;
@@ -3260,8 +3242,8 @@ body {
    ESTADOS DE ERROR EN FORMULARIOS
    ============================================================ */
 .input-group.has-error input {
-    border-color: #ff6b6b !important;
-    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.14);
+    border-color: var(--line-scarlet) !important;
+    box-shadow: 0 0 0 3px rgba(204, 63, 82, 0.16);
 }
 .field-error {
     display: none;
@@ -3282,7 +3264,7 @@ body {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #ff6b6b;
+    background: var(--line-scarlet);
     color: #fff;
     font-size: 0.68rem;
     font-weight: 700;
