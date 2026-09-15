@@ -1,0 +1,38 @@
+/* ============================================================
+   TOKENS GLOBALES — Red de Metro Nocturna
+   Fuente única de verdad para toda la app.
+   Portado literal desde el styles.css original: el mundo visual
+   no cambia en la migración a Angular, solo su organización.
+   ============================================================ */
+
+:root {
+  /* Superficie — azul medianoche esmaltado */
+  --ww-bg: #0a1628;
+  --ww-bg-2: #0d1c33;
+  --ww-surface: #11233f;
+  --ww-surface-2: #152947;
+  --ww-line: rgba(178, 198, 224, 0.14);
+  --ww-line-strong: rgba(178, 198, 224, 0.28);
+  --ww-radius: 14px;
+
+  /* Tinta — blanco porcelana */
+  --ww-text: #f1efe7;
+  --ww-muted: #a3b4cc;
+  --ww-faint: #7183a3;
+
+  /* Acento primario (CTAs, foco, enlaces): ámbar de panel de salidas */
+  --ww-accent: #f5a623;
+  --ww-accent-ink: #0a1628;
+
+  /* Líneas con significado propio de juego */
+  --line-scarlet: #cc3f52; /* Versus / competitivo / crítico — oscurecido para 4.5:1 con texto blanco */
+  --line-cobalt: #4a90e2; /* estructural / navegación */
+  --line-amber: #f5a623; /* reto diario / urgencia */
+  --line-lime: #5fd97a; /* Solo / amistoso / éxito */
+  --ww-fire: var(--line-amber);
+
+  /* Tipografía — señalética de transporte */
+  --ww-serif: 'Overpass', 'Arial Narrow', sans-serif;
+  --ww-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --ww-mono: 'IBM Plex Mono', 'Courier New', monospace;
+}
