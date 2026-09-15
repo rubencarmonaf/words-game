@@ -101,6 +101,8 @@ Rejected in the same pass: animating the per-second game timer (functional data,
   | Leyenda | 1500+ | scarlet |
 
 - **Stat cards**: the same ELO/Partidas/Victorias/% Victorias numbers that used to sit in a flat box on the menu, now icon-labeled cards on the profile page; the menu's old `.user-stats` block was removed rather than duplicated.
+- **Editar perfil**: a `PUT /api/profile` route (username + avatarColor + avatarIcon, auth required, username uniqueness re-checked server-side) backs an inline edit form with live avatar preview as color/icon swatches are picked.
+- One real detector-caught bug fixed during build: the tier progress bar originally animated `width` (`layout-transition` finding, flagged with a real file/line) — switched to the codebase's existing `transform: scaleX(var(--fill))` technique (same one the landing's route-panel arrival already uses) instead of inventing a new pattern.
 
 ## Versus online: a real server-authoritative match
 
@@ -112,5 +114,4 @@ Rejected in the same pass: animating the per-second game timer (functional data,
 - A disconnect mid-match is treated as a forfeit by the same code path, so a match can't hang forever waiting for someone who left.
 - Fixed a real pre-existing race along the way: the matchmaking queue's `socketId` was only set from `authenticate`'s `if (matchmakingQueue.has(...))` check, so a socket that authenticated *before* `POST /api/matchmaking/join` finished writing its queue entry got a permanently empty `socketId` and never received `matchFound`. Both `matchFound` and `gameStart` now resolve sockets through a persistent `userSockets` map instead of trusting that field.
 - Verified end-to-end with a real browser client and a scripted second client (`socket.io-client`, run standalone): matchmaking paired them, both received the same prefix, word broadcasts appeared on both sides in real time, forfeiting ended the match, and both accounts' ELO updated correctly in MongoDB (winner 0 → 30, loser 0 → 0 via the clamp) after the match.
-- **Editar perfil**: a `PUT /api/profile` route (username + avatarColor + avatarIcon, auth required, username uniqueness re-checked server-side) backs an inline edit form with live avatar preview as color/icon swatches are picked.
-- One real detector-caught bug fixed during build: the tier progress bar originally animated `width` (`layout-transition` finding, flagged with a real file/line) — switched to the codebase's existing `transform: scaleX(var(--fill))` technique (same one the landing's route-panel arrival already uses) instead of inventing a new pattern.
+- **Matchmaking range grows with wait time**: pairing now requires ELO within 100 at the moment a player joins the queue, widening by 50 every 5 seconds waited (`matchmakingRange()`), so early matches are close and nobody camps in queue forever if the pool is thin. A pair matches once either player's current range covers the gap (`Math.max` of both), and the queue snapshot is sorted by ELO each tick so the closest possible opponents are compared before wider ones.

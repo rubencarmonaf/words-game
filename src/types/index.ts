@@ -95,6 +95,7 @@ export interface MatchmakingPlayer {
   username: string;
   elo: number;
   socketId?: string;
+  queuedAt: number;
 }
 
 // Socket Types
