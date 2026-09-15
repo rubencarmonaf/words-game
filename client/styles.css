@@ -2805,31 +2805,48 @@ body {
 
 /* Botones de modo de juego */
 .mode-btn {
+    --card-accent: var(--line-cobalt);
+    --card-accent-soft: rgba(74, 144, 226, 0.1);
+    --card-accent-border: rgba(74, 144, 226, 0.24);
     background: var(--ww-surface-2);
     border: 1px solid var(--ww-line);
+    border-radius: var(--ww-radius);
     box-shadow: none;
     color: var(--ww-text);
     text-align: left;
     position: relative;
+    overflow: hidden;
 }
 .mode-btn::before {
     content: '';
     position: absolute;
-    left: 0; top: 18px; bottom: 18px;
-    width: 3px;
-    border-radius: 3px;
-    background: var(--ww-accent);
-    opacity: 0;
-    transition: opacity 0.25s ease;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent);
 }
+.mode-btn--scarlet { --card-accent: var(--line-scarlet); --card-accent-soft: rgba(239, 74, 95, 0.1); --card-accent-border: rgba(239, 74, 95, 0.24); }
+.mode-btn--amber { --card-accent: var(--line-amber); --card-accent-soft: rgba(245, 166, 35, 0.1); --card-accent-border: rgba(245, 166, 35, 0.24); }
+.mode-btn--lime { --card-accent: var(--line-lime); --card-accent-soft: rgba(95, 217, 122, 0.1); --card-accent-border: rgba(95, 217, 122, 0.24); }
 .mode-btn:hover {
-    border-color: var(--ww-line-strong);
+    border-color: var(--card-accent-border);
     background: var(--ww-surface);
     box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.8);
 }
-.mode-btn:hover::before { opacity: 1; }
 .mode-btn h3 { color: var(--ww-text); }
 .mode-btn p { color: var(--ww-muted); }
+.mode-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 14px;
+    border-radius: 11px;
+    color: var(--card-accent);
+    background: var(--card-accent-soft);
+    border: 1px solid var(--card-accent-border);
+}
+.mode-icon svg { width: 21px; height: 21px; }
 
 /* Estadísticas de usuario */
 .stat-item {
@@ -2837,7 +2854,7 @@ body {
     border: 1px solid var(--ww-line);
     box-shadow: none;
 }
-.stat-value { color: var(--ww-accent); }
+.stat-value { color: var(--ww-accent); font-family: var(--ww-mono); font-variant-numeric: tabular-nums; }
 .stat-label { color: var(--ww-muted); }
 
 /* Amigos / peticiones */
@@ -2860,18 +2877,19 @@ body {
 .request-date { color: var(--ww-faint); }
 .no-friends,
 .no-friends-to-invite { color: var(--ww-muted); }
+.player-info { display: flex; align-items: center; gap: 10px; }
 .lobby-player.host {
-    background: rgba(255, 122, 60, 0.08);
-    border-color: rgba(255, 122, 60, 0.25);
+    background: rgba(245, 166, 35, 0.08);
+    border-color: rgba(245, 166, 35, 0.25);
 }
 .friend-requests {
-    background: rgba(255, 122, 60, 0.07);
-    border: 1px solid rgba(255, 122, 60, 0.22);
+    background: rgba(245, 166, 35, 0.07);
+    border: 1px solid rgba(245, 166, 35, 0.22);
 }
-.friend-requests h3 { color: var(--ww-fire); }
+.friend-requests h3 { color: var(--ww-accent); }
 .invite-btn { background: var(--ww-accent); color: var(--ww-accent-ink); }
-.invite-btn:hover { background: #d7f86a; }
-.invite-btn.invited { background: #3ba776; color: #fff; }
+.invite-btn:hover { background: #ffb84d; }
+.invite-btn.invited { background: var(--line-lime); color: var(--ww-accent-ink); }
 
 /* ---------- Juego ---------- */
 .game-header,
