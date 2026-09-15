@@ -2747,26 +2747,39 @@ body::before {
 }
 .ww-avatar svg { width: 100%; height: 100%; display: block; }
 .ww-avatar--sm { width: 34px; height: 34px; }
+.ww-avatar--md { width: 64px; height: 64px; border: 3px solid var(--ww-bg-2); }
 .ww-avatar--lg { width: 96px; height: 96px; border: 4px solid var(--ww-bg-2); box-shadow: 0 16px 32px -14px rgba(0, 0, 0, 0.7); }
+
+.user-info { padding: 18px 20px; }
 
 .ww-id-chip {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 16px;
     background: none;
     border: none;
-    padding: 4px 10px 4px 4px;
-    border-radius: 999px;
+    padding: 6px;
+    border-radius: var(--ww-radius);
     cursor: pointer;
     transition: background-color 0.18s ease;
 }
 .ww-id-chip:hover { background: rgba(178, 198, 224, 0.08); }
 .ww-id-chip:active { transform: scale(0.98); }
+.ww-id-chip-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+}
 .ww-id-chip-name {
     font-family: var(--ww-serif);
     font-weight: 700;
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     color: var(--ww-text);
+}
+.ww-id-chip-text .ww-tier-badge {
+    margin-bottom: 0;
+    background: var(--ww-surface-2);
 }
 
 .profile-content { max-width: 760px; padding: 40px; }
