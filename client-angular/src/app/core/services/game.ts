@@ -2,15 +2,19 @@ import { Service, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, firstValueFrom, of } from 'rxjs';
 import type { ApiResponse, WordValidationResponse } from '@shared-types';
+import { Auth } from './auth';
+import { Socket } from './socket';
+import { Toast } from '../../shared/services/toast';
 
-export type GameMode = 'solo' | 'cadena' | 'friendly';
-export type GameStatus = 'setup' | 'active' | 'finished';
+export type GameMode = 'solo' | 'cadena' | 'friendly' | 'versus';
+export type GameStatus = 'setup' | 'matchmaking' | 'active' | 'finished';
 
 export interface GamePlayer {
   id: string;
   username: string;
   words: string[];
   score: number;
+  userId?: string;
 }
 
 export interface GameSetupConfig {
@@ -41,12 +45,46 @@ export interface WordSubmitResult {
   message?: string;
 }
 
-/** Estado y reglas de las partidas locales (solo/cadena/amigos). Ported from
- * client/game/WordGame.ts — la validación contra el diccionario sigue siendo
- * server-side, pero el arbitraje (turno, cronómetro, resultado) es local. */
+interface MatchFoundPayload {
+  gameId: string;
+  opponent: string;
+}
+
+interface GameStartPayload {
+  gameId: string;
+  prefix: string;
+  players: { userId: string; username: string }[];
+}
+
+interface WordSubmittedPayload {
+  word: string;
+  playerId: string;
+  score: number;
+}
+
+interface WordRejectedPayload {
+  message: string;
+}
+
+interface GameEndPayload {
+  winner: string | null;
+  finalScores: { username: string; score: number }[];
+  won: boolean;
+}
+
+const VERSUS_DURATION_SECONDS = 300;
+const LOCAL_MULTIPLAYER_DURATION_SECONDS = 60;
+
+/** Estado y reglas de todos los modos de partida, ported from
+ * client/game/WordGame.ts. Solo/cadena/amigos se arbitran localmente contra
+ * la validación server-side del diccionario; versus es server-authoritative
+ * de principio a fin — este servicio solo refleja los eventos de socket. */
 @Service()
 export class Game {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(Auth);
+  private readonly socket = inject(Socket);
+  private readonly toast = inject(Toast);
 
   private readonly modeSignal = signal<GameMode>('solo');
   private readonly statusSignal = signal<GameStatus>('setup');
@@ -55,6 +93,8 @@ export class Game {
   private readonly wordsSignal = signal<string[]>([]);
   private readonly timeRemainingSignal = signal(0);
   private readonly outcomeSignal = signal<GameOutcome | null>(null);
+  private readonly gameIdSignal = signal<string | null>(null);
+  private readonly opponentScoreSignal = signal(0);
 
   readonly mode = this.modeSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
@@ -63,8 +103,66 @@ export class Game {
   readonly words = this.wordsSignal.asReadonly();
   readonly timeRemaining = this.timeRemainingSignal.asReadonly();
   readonly outcome = this.outcomeSignal.asReadonly();
+  readonly gameId = this.gameIdSignal.asReadonly();
+  readonly opponentScore = this.opponentScoreSignal.asReadonly();
 
   private timer: ReturnType<typeof setInterval> | null = null;
+  private pendingSubmit: ((result: WordSubmitResult) => void) | null = null;
+
+  constructor() {
+    this.socket.on<MatchFoundPayload>('matchFound').subscribe((data) => {
+      this.gameIdSignal.set(data.gameId);
+      this.toast.show(`¡Partida encontrada contra ${data.opponent}!`, 'success');
+    });
+
+    this.socket.on<GameStartPayload>('gameStart').subscribe((data) => {
+      this.gameIdSignal.set(data.gameId);
+      this.prefixSignal.set(data.prefix);
+      this.playersSignal.set(
+        data.players.map((p) => ({ id: p.userId, userId: p.userId, username: p.username, words: [], score: 0 })),
+      );
+      this.wordsSignal.set([]);
+      this.opponentScoreSignal.set(0);
+      this.outcomeSignal.set(null);
+      this.statusSignal.set('active');
+      this.startTimer();
+    });
+
+    this.socket.on<WordSubmittedPayload>('wordSubmitted').subscribe((data) => {
+      const normalized = data.word.toLowerCase();
+      this.playersSignal.update((players) =>
+        players.map((p) =>
+          p.userId === data.playerId ? { ...p, words: [...p.words, normalized], score: data.score } : p,
+        ),
+      );
+
+      if (data.playerId === this.auth.getUserId()) {
+        this.wordsSignal.update((words) => [...words, normalized]);
+        this.resolvePendingSubmit({ success: true, message: `¡"${data.word}" agregada!` });
+      } else {
+        this.opponentScoreSignal.set(data.score);
+        this.toast.show(`Tu rival añadió "${data.word}"`, 'info');
+      }
+    });
+
+    this.socket.on<WordRejectedPayload>('wordRejected').subscribe((data) => {
+      this.resolvePendingSubmit({ success: false, message: data.message });
+    });
+
+    this.socket.on<GameEndPayload>('gameEnd').subscribe((data) => {
+      this.clearTimer();
+      this.statusSignal.set('finished');
+      this.outcomeSignal.set({
+        results: {
+          type: 'multiplayer',
+          players: data.finalScores.map((p, i) => ({ id: `player-${i}`, username: p.username, score: p.score, words: [] })),
+        },
+        won: data.won,
+      });
+    });
+
+    this.socket.on<string>('error').subscribe((message) => this.toast.show(message, 'error'));
+  }
 
   setMode(mode: GameMode): void {
     this.modeSignal.set(mode);
@@ -96,6 +194,32 @@ export class Game {
     this.startTimer();
   }
 
+  /** Une al jugador a la cola de matchmaking y conecta el socket que recibirá
+   * matchFound/gameStart. La partida en sí arranca cuando el servidor empareja
+   * a dos jugadores — este método solo entra en la cola. */
+  startMatchmaking(): Observable<ApiResponse<{ message: string }>> {
+    this.modeSignal.set('versus');
+    this.statusSignal.set('matchmaking');
+    this.socket.connect();
+
+    return this.http.post<ApiResponse<{ message: string }>>('/api/matchmaking/join', {}).pipe(
+      catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))),
+    );
+  }
+
+  cancelMatchmaking(): void {
+    this.http.post('/api/matchmaking/leave', {}).subscribe();
+    this.reset();
+  }
+
+  /** Abandono voluntario de una partida versus en curso: el servidor decide el
+   * resultado (derrota para quien abandona) y llega por el evento gameEnd. */
+  forfeit(): void {
+    const gameId = this.gameIdSignal();
+    if (this.modeSignal() !== 'versus' || !gameId) return;
+    this.socket.emit('forfeitGame', { gameId });
+  }
+
   async submitWord(word: string): Promise<WordSubmitResult> {
     const trimmed = word.trim();
     const normalized = trimmed.toLowerCase();
@@ -106,6 +230,13 @@ export class Game {
     }
     if (this.wordsSignal().includes(normalized)) {
       return { success: false, message: 'Ya has usado esta palabra' };
+    }
+
+    if (this.modeSignal() === 'versus') {
+      return new Promise<WordSubmitResult>((resolve) => {
+        this.pendingSubmit = resolve;
+        this.socket.emit('submitWord', { gameId: this.gameIdSignal(), word: trimmed });
+      });
     }
 
     const validation = await firstValueFrom(this.validateWord(normalized));
@@ -144,6 +275,14 @@ export class Game {
     this.wordsSignal.set([]);
     this.timeRemainingSignal.set(0);
     this.outcomeSignal.set(null);
+    this.gameIdSignal.set(null);
+    this.opponentScoreSignal.set(0);
+    this.pendingSubmit = null;
+  }
+
+  private resolvePendingSubmit(result: WordSubmitResult): void {
+    this.pendingSubmit?.(result);
+    this.pendingSubmit = null;
   }
 
   private buildMultiplayerOutcome(): GameOutcome {
@@ -153,16 +292,23 @@ export class Game {
   }
 
   private startTimer(): void {
-    if (this.modeSignal() === 'solo') {
+    const mode = this.modeSignal();
+    if (mode === 'solo') {
       this.timeRemainingSignal.set(-1);
       return;
     }
 
-    this.timeRemainingSignal.set(60);
+    this.timeRemainingSignal.set(mode === 'versus' ? VERSUS_DURATION_SECONDS : LOCAL_MULTIPLAYER_DURATION_SECONDS);
     this.timer = setInterval(() => {
       this.timeRemainingSignal.update((t) => t - 1);
       if (this.timeRemainingSignal() <= 0) {
-        this.end();
+        if (mode === 'versus') {
+          // El servidor tiene su propio timeout corriendo en paralelo y decide
+          // el final real; aquí solo se congela el contador visible.
+          this.clearTimer();
+        } else {
+          this.end();
+        }
       }
     }, 1000);
   }

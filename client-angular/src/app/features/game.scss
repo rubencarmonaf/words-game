@@ -50,6 +50,11 @@
 .game-stats {
   color: var(--ww-muted);
   font-weight: 600;
+  display: flex;
+  gap: 16px;
+}
+.opponent-score {
+  color: var(--line-scarlet);
 }
 
 /* Riel ambiental: un tren avanzando mientras la partida está en curso. */

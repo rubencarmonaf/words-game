@@ -7,6 +7,9 @@
   </div>
   <div class="game-stats">
     <span id="word-count">{{ wordCountDisplay() }}</span>
+    @if (isVersus()) {
+      <span id="opponent-score" class="opponent-score">{{ opponentScoreDisplay() }}</span>
+    }
   </div>
 </div>
 

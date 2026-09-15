@@ -4,12 +4,15 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Router } from '@angular/router';
 import { Game as GameFeature } from './game';
 import { Game as GameService } from '../core/services/game';
+import { Socket } from '../core/services/socket';
+import { FakeSocket } from '../core/services/socket.testing';
 
 describe('Game feature', () => {
   let fixture: ComponentFixture<GameFeature>;
   let component: GameFeature;
   let gameService: GameService;
   let httpMock: HttpTestingController;
+  let socket: FakeSocket;
   let navigated: string[];
 
   const routerStub = {
@@ -27,11 +30,13 @@ describe('Game feature', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: Router, useValue: routerStub },
+        { provide: Socket, useClass: FakeSocket },
       ],
     }).compileComponents();
 
     gameService = TestBed.inject(GameService);
     httpMock = TestBed.inject(HttpTestingController);
+    socket = TestBed.inject(Socket) as unknown as FakeSocket;
   }
 
   async function startSoloGame(): Promise<void> {
@@ -104,8 +109,71 @@ describe('Game feature', () => {
     fixture.detectChanges();
 
     component['endGame']();
+    await fixture.whenStable();
 
     expect(navigated).toEqual(['/play/results']);
     expect(gameService.status()).toBe('finished');
+  });
+
+  async function startVersusGame(): Promise<void> {
+    gameService.startMatchmaking().subscribe();
+    httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+    socket.push('gameStart', {
+      gameId: 'g1',
+      prefix: 'con',
+      players: [
+        { userId: 'u1', username: 'Yo' },
+        { userId: 'u2', username: 'Rival' },
+      ],
+    });
+  }
+
+  it('shows the opponent score only in versus mode', async () => {
+    await setup();
+    await startVersusGame();
+
+    fixture = TestBed.createComponent(GameFeature);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(component['isVersus']()).toBe(true);
+    expect(component['opponentScoreDisplay']()).toBe('Rival: 0');
+  });
+
+  it('endGame() forfeits instead of ending locally when the game is versus', async () => {
+    await setup();
+    await startVersusGame();
+
+    fixture = TestBed.createComponent(GameFeature);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['endGame']();
+    await fixture.whenStable();
+
+    expect(socket.emitted).toContainEqual({ event: 'forfeitGame', data: { gameId: 'g1' } });
+    expect(gameService.status()).toBe('active');
+    expect(navigated).toEqual([]);
+  });
+
+  it('navigates to results once the server-driven gameEnd arrives', async () => {
+    await setup();
+    await startVersusGame();
+
+    fixture = TestBed.createComponent(GameFeature);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    socket.push('gameEnd', {
+      winner: 'Rival',
+      finalScores: [
+        { username: 'Rival', score: 3 },
+        { username: 'Yo', score: 1 },
+      ],
+      won: false,
+    });
+    await fixture.whenStable();
+
+    expect(navigated).toEqual(['/play/results']);
   });
 });

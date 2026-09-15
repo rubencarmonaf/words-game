@@ -56,7 +56,12 @@ export class Results implements OnInit {
   protected playAgain(): void {
     const mode: GameMode = this.game.mode();
     this.game.reset();
-    this.router.navigateByUrl(`/play/setup/${mode}`);
+
+    if (mode === 'versus') {
+      this.router.navigateByUrl('/play/matchmaking');
+    } else {
+      this.router.navigateByUrl(`/play/setup/${mode}`);
+    }
   }
 
   private triggerVictorySequence(): void {

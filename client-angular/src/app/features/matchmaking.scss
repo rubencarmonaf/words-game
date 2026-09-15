@@ -1,0 +1,71 @@
+:host {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px;
+}
+
+.matchmaking-content {
+  width: 100%;
+  max-width: 420px;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: var(--ww-radius);
+  padding: 40px;
+  color: var(--ww-text);
+  text-align: center;
+}
+
+h2 {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-size: 1.7rem;
+  margin-bottom: 20px;
+}
+
+/* ---------- Buscando línea disponible ---------- */
+.ww-search-track {
+  position: relative;
+  width: 220px;
+  height: 6px;
+  margin: 34px auto 22px;
+  border-radius: 999px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line);
+}
+.ww-search-track-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--ww-accent);
+  animation: ww-search-sweep 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes ww-search-sweep {
+  0% {
+    left: 0;
+  }
+  50% {
+    left: calc(100% - 14px);
+  }
+  100% {
+    left: 0;
+  }
+}
+.ww-search-status {
+  color: var(--ww-muted);
+  transition: opacity 200ms ease;
+  margin-bottom: 24px;
+}
+.ww-search-status--out {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ww-search-track-dot {
+    animation: none;
+    left: calc(50% - 7px);
+  }
+}

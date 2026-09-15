@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Game as GameService } from '../core/services/game';
@@ -21,6 +21,8 @@ export class Game implements OnInit {
 
   protected readonly prefixDisplay = computed(() => this.game.prefix().toUpperCase());
   protected readonly wordCountDisplay = computed(() => `Palabras: ${this.game.words().length}`);
+  protected readonly isVersus = computed(() => this.game.mode() === 'versus');
+  protected readonly opponentScoreDisplay = computed(() => `Rival: ${this.game.opponentScore()}`);
 
   protected readonly timerDisplay = computed(() => {
     const t = this.game.timeRemaining();
@@ -37,6 +39,16 @@ export class Game implements OnInit {
     const t = this.game.timeRemaining();
     return t !== -1 && t <= 10;
   });
+
+  constructor() {
+    // Cubre tanto el fin local (temporizador/botón) como el fin server-authoritative
+    // de una partida versus (gameEnd llega de forma asíncrona por socket).
+    effect(() => {
+      if (this.game.status() === 'finished') {
+        this.router.navigateByUrl('/play/results');
+      }
+    });
+  }
 
   ngOnInit(): void {
     if (this.game.status() !== 'active') {
@@ -64,8 +76,11 @@ export class Game implements OnInit {
   }
 
   protected endGame(): void {
-    this.game.end();
-    this.router.navigateByUrl('/play/results');
+    if (this.game.mode() === 'versus') {
+      this.game.forfeit();
+    } else {
+      this.game.end();
+    }
   }
 
   private flashWordError(): void {
