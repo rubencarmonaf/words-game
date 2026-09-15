@@ -270,15 +270,19 @@ export class UI {
         this.showScreen('game-screen');
     }
 
-    showResults(results: any): void {
+    showResults(results: any, won: boolean = false): void {
         this.showScreen('results-screen');
-        
+
         const resultsDisplay = document.getElementById('results-display');
         if (!resultsDisplay) return;
 
         resultsDisplay.innerHTML = '';
+        document.getElementById('ww-victory')?.remove();
+
+        let finalScore = 0;
 
         if (results.type === 'solo') {
+            finalScore = results.totalWords;
             resultsDisplay.innerHTML = `
                 <div class="player-result">
                     <span class="player-name">¡Excelente trabajo!</span>
@@ -287,6 +291,7 @@ export class UI {
             `;
         } else {
             // Multiplayer results
+            finalScore = results.players[0]?.score ?? 0;
             results.players.forEach((player: any, index: number) => {
                 const playerElement = document.createElement('div');
                 playerElement.className = index === 0 ? 'player-result winner' : 'player-result';
@@ -297,6 +302,82 @@ export class UI {
                 resultsDisplay.appendChild(playerElement);
             });
         }
+
+        if (won) {
+            this.playVictorySequence(finalScore, 'palabras');
+        }
+    }
+
+    // Momento de llegada a la terminal: la línea se dibuja hasta un roundel,
+    // el marcador gira como un panel de salidas y caen unas partículas con
+    // las formas del propio sistema (roundels/paradas), no confeti genérico.
+    private playVictorySequence(score: number, unit: string): void {
+        const content = document.querySelector('.results-content');
+        if (!content) return;
+
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const digits = String(score).padStart(2, '0').split('');
+        const colors = ['scarlet', 'cobalt', 'amber', 'lime'];
+
+        const flapCells = '0123456789'.split('').map(d => `<span class="ww-flap-cell">${d}</span>`).join('');
+
+        const overlay = document.createElement('div');
+        overlay.id = 'ww-victory';
+        overlay.className = 'ww-victory';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.innerHTML = `
+            <div class="ww-victory-track">
+                <svg class="ww-victory-line" viewBox="0 0 320 56" preserveAspectRatio="none">
+                    <path class="ww-victory-path" d="M0,30 C90,30 108,8 160,8 S 232,30 320,30" />
+                </svg>
+                <span class="ww-victory-roundel">✓</span>
+            </div>
+            <div class="ww-victory-score">
+                ${digits.map(() => `<span class="ww-flap"><span class="ww-flap-strip">${flapCells}</span></span>`).join('')}
+                <span class="ww-victory-unit">${unit}</span>
+            </div>
+            <div class="ww-victory-particles"></div>
+        `;
+        content.prepend(overlay);
+
+        if (reduced) {
+            overlay.querySelectorAll('.ww-flap-strip').forEach((strip, i) => {
+                (strip as HTMLElement).style.transform = `translateY(-${Number(digits[i]) * 10}%)`;
+            });
+            return;
+        }
+
+        // Reproduce la animación de dibujo de línea (definida en CSS) y,
+        // cuando llega al roundel, dispara el marcador y las partículas.
+        window.setTimeout(() => {
+            overlay.querySelector('.ww-victory-roundel')?.classList.add('ww-victory-roundel--lit');
+            overlay.querySelectorAll<HTMLElement>('.ww-flap-strip').forEach((strip, i) => {
+                window.setTimeout(() => {
+                    strip.style.transform = `translateY(-${Number(digits[i]) * 10}%)`;
+                }, i * 90);
+            });
+            this.spawnVictoryParticles(overlay.querySelector('.ww-victory-particles') as HTMLElement, colors);
+        }, 650);
+    }
+
+    private spawnVictoryParticles(container: HTMLElement | null, colors: string[]): void {
+        if (!container) return;
+        const shapes: Array<'dot' | 'dash'> = ['dot', 'dash'];
+
+        for (let i = 0; i < 16; i++) {
+            const particle = document.createElement('span');
+            const color = colors[i % colors.length];
+            const shape = shapes[i % shapes.length];
+            const angle = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.4;
+            const distance = 60 + Math.random() * 70;
+            particle.className = `ww-victory-particle ww-victory-particle--${shape} ww-victory-particle--${color}`;
+            particle.style.setProperty('--dx', `${Math.cos(angle) * distance}px`);
+            particle.style.setProperty('--dy', `${Math.sin(angle) * distance - 20}px`);
+            particle.style.setProperty('--delay', `${Math.random() * 120}ms`);
+            container.appendChild(particle);
+        }
+
+        window.setTimeout(() => container.replaceChildren(), 1400);
     }
 
     private updatePlayerNames(): void {

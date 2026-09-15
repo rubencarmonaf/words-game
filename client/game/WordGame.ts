@@ -279,19 +279,20 @@ export class WordGame {
             this.showResults({
                 type: 'solo',
                 totalWords: this.gameState.words.length
-            });
+            }, true);
         } else {
             // Multiplayer - determine winner
+            const localPlayer = this.gameState.players[0];
             const sortedPlayers = [...this.gameState.players].sort((a, b) => b.score - a.score);
             this.showResults({
                 type: 'multiplayer',
                 players: sortedPlayers
-            });
+            }, sortedPlayers[0] === localPlayer);
         }
     }
 
-    private showResults(results: any): void {
-        this.ui.showResults(results);
+    private showResults(results: any, won: boolean = false): void {
+        this.ui.showResults(results, won);
     }
 
     playAgain(): void {
