@@ -15,3 +15,12 @@ export const guestGuard: CanActivateFn = () => {
   const router = inject(Router);
   return !auth.isAuthenticated() || router.createUrlTree(['/menu']);
 };
+
+/** El backend sigue enviando el email de reseteo apuntando a "/?reset=TOKEN"
+ * (server.ts no cambia en esta migración) — la landing redirige ese enlace a
+ * la pantalla real de reset, en vez de intentar entenderlo ella misma. */
+export const resetRedirectGuard: CanActivateFn = (route) => {
+  const router = inject(Router);
+  const token = route.queryParamMap.get('reset');
+  return token ? router.createUrlTree(['/auth/reset-password'], { queryParams: { token } }) : true;
+};

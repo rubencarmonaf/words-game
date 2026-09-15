@@ -1,9 +1,10 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/guards/auth-guard';
+import { authGuard, guestGuard, resetRedirectGuard } from './core/guards/auth-guard';
 
 export const routes: Routes = [
   {
     path: '',
+    canActivate: [resetRedirectGuard, guestGuard],
     loadComponent: () => import('./features/landing').then((m) => m.Landing),
   },
   {

@@ -1,10 +1,52 @@
-import { Component } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { SiteFooter } from '../shared/components/site-footer';
 
+/** Ported from client/index.html's landing-screen + main.ts's scroll-reveal
+ * setup. The hero's live-looking route panel (typing cursor, ELO bars) is
+ * entirely static/CSS-driven in the original — no JS animates it. */
 @Component({
-  imports: [RouterLink],
   selector: 'ww-landing',
+  imports: [RouterLink, SiteFooter],
   styleUrl: './landing.scss',
   templateUrl: './landing.html',
 })
-export class Landing {}
+export class Landing implements AfterViewInit, OnDestroy {
+  private readonly elementRef = inject(ElementRef<HTMLElement>);
+  private observer: IntersectionObserver | null = null;
+
+  protected scrollToHowItWorks(event: Event): void {
+    event.preventDefault();
+    const root: HTMLElement = this.elementRef.nativeElement;
+    root.querySelector('#como')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  ngAfterViewInit(): void {
+    const root: HTMLElement = this.elementRef.nativeElement;
+    const targets = root.querySelectorAll<HTMLElement>('[data-reveal]');
+    if (!targets.length) return;
+
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach((el: HTMLElement) => el.classList.add('ww-in'));
+      return;
+    }
+
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('ww-in');
+            this.observer?.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' },
+    );
+
+    targets.forEach((el: HTMLElement) => this.observer!.observe(el));
+  }
+
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+  }
+}

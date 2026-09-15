@@ -3,6 +3,8 @@
 @use './styles/forms';
 @use './styles/buttons';
 @use './styles/back-btn';
+@use './styles/board-badge';
+@use './styles/static-pages';
 
 body {
   font-family: var(--ww-sans);

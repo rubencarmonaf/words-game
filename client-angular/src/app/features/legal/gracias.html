@@ -1,1 +1,12 @@
-<p>gracias works!</p>
+<ww-static-page>
+  <main class="ww-center-page">
+    <div class="ww-center-card">
+      <h1>{{ content.title }}</h1>
+      <p>{{ content.text }}</p>
+      <div class="ww-btn-row">
+        <a [routerLink]="content.ctaLink" class="ww-btn ww-btn--primary ww-btn--lg">{{ content.cta }}</a>
+        <a routerLink="/contacto" class="ww-btn ww-btn--ghost ww-btn--lg">Contactar</a>
+      </div>
+    </div>
+  </main>
+</ww-static-page>
