@@ -5,6 +5,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { DEFAULT_AVATAR } from '@shared-types';
 import { Menu } from './menu';
+import { Socket } from '../core/services/socket';
+import { FakeSocket } from '../core/services/socket.testing';
 
 describe('Menu', () => {
   let component: Menu;
@@ -14,7 +16,12 @@ describe('Menu', () => {
   async function setup(): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [Menu],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: Socket, useClass: FakeSocket },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Menu);
@@ -75,7 +82,7 @@ describe('Menu', () => {
     await fixture.whenStable();
 
     const el: HTMLElement = fixture.nativeElement;
-    const card = el.querySelector('.mode-btn--amber');
+    const card = el.querySelector('.mode-card--amber');
     expect(card?.textContent).toContain('2 min');
   });
 
@@ -87,7 +94,7 @@ describe('Menu', () => {
       fixture.detectChanges();
 
       const el: HTMLElement = fixture.nativeElement;
-      expect(el.querySelector('.mode-btn--completed')?.textContent).toContain('Completado');
+      expect(el.querySelector('.mode-card--completed')?.textContent).toContain('Completado');
       expect(el.textContent).toContain('01:01:01');
 
       vi.advanceTimersByTime(1000);
