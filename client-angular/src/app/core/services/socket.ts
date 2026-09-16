@@ -22,6 +22,12 @@ export class Socket {
 
   private socket: IoSocket | null = null;
   private readonly listeners = new Map<string, Set<(data: unknown) => void>>();
+  // emit() calls made before authenticate has actually gone out are queued
+  // here instead of relying on socket.io-client's own pre-connect buffer,
+  // which flushes before our 'connect' handler runs and would let e.g.
+  // lobby:create reach the server ahead of authenticate — silently dropped
+  // server-side since the socket has no userId yet at that point.
+  private readonly pendingEmits: { event: string; data?: unknown }[] = [];
 
   connect(): void {
     if (this.socket?.connected) return;
@@ -35,6 +41,9 @@ export class Socket {
     this.socket.on('connect', () => {
       const token = this.auth.token();
       if (token) this.socket!.emit('authenticate', token);
+
+      const queued = this.pendingEmits.splice(0);
+      for (const { event, data } of queued) this.socket!.emit(event, data);
     });
 
     for (const [event, handlers] of this.listeners) {
@@ -47,10 +56,15 @@ export class Socket {
   disconnect(): void {
     this.socket?.disconnect();
     this.socket = null;
+    this.pendingEmits.length = 0;
   }
 
   emit(event: string, data?: unknown): void {
-    this.socket?.emit(event, data);
+    if (this.socket?.connected) {
+      this.socket.emit(event, data);
+    } else if (this.socket) {
+      this.pendingEmits.push({ event, data });
+    }
   }
 
   on<T>(event: string): Observable<T> {
