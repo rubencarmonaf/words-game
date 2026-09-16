@@ -34,7 +34,7 @@ const gameSchema = new Schema<IGame>({
   },
   gameType: {
     type: String,
-    enum: ['versus', 'friendly'],
+    enum: ['versus', 'lobby'],
     required: true
   },
   status: {
