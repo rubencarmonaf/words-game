@@ -1,3 +1,8 @@
 @for (m of toast.messages(); track m.id) {
-  <div class="ww-toast ww-toast--{{ m.type }}">{{ m.text }}</div>
+  <div class="ww-toast ww-toast--{{ m.type }}">
+    <span>{{ m.text }}</span>
+    @if (m.action; as action) {
+      <button type="button" class="ww-toast-action" (click)="action.onClick()">{{ action.label }}</button>
+    }
+  </div>
 }

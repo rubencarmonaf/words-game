@@ -15,6 +15,9 @@
   right: 20px;
   z-index: 1000;
   max-width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 14px 18px;
   border-radius: 10px;
   font-weight: 600;
@@ -32,6 +35,28 @@
   }
   &--info {
     background: var(--line-cobalt);
+  }
+}
+
+.ww-toast-action {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.24);
+  }
+  &:active {
+    transform: scale(0.96);
   }
 }
 
