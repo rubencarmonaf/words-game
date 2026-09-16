@@ -4,8 +4,8 @@
     <div class="lobby-header">
       <h1>Lobby de partida</h1>
       <div class="lobby-info-header">
-        <span>Modo: Cadena</span>
-        <span>Jugadores: 1/15</span>
+        <span>Modo: Con amigos</span>
+        <span>Jugadores: {{ players().length }}/15</span>
       </div>
     </div>
   </header>
@@ -14,12 +14,18 @@
     <div class="lobby-players-section">
       <h2>Jugadores en el Lobby</h2>
       <div class="lobby-players-list">
-        <div class="lobby-player host">
-          <div class="player-info">
-            <span class="player-name">Tú</span>
-            <span class="board-badge board-badge--amber player-status">Anfitrión</span>
+        @for (player of players(); track player.userId) {
+          <div class="lobby-player" [class.host]="player.userId === hostId()">
+            <div class="player-info">
+              <span class="player-name">
+                {{ player.username }}{{ player.userId === myUserId ? ' (Tú)' : '' }}
+              </span>
+              @if (player.userId === hostId()) {
+                <span class="board-badge board-badge--lime player-status">Anfitrión</span>
+              }
+            </div>
           </div>
-        </div>
+        }
       </div>
     </div>
 
@@ -27,26 +33,31 @@
       <div class="invite-section">
         <h2>Invitar Amigos</h2>
         <div class="friends-to-invite">
-          @if (friends().length === 0) {
+          @if (invitableFriends().length === 0) {
             <div class="no-friends-to-invite">
-              <p>No tienes amigos para invitar</p>
-              <p>¡Agrega algunos amigos primero!</p>
+              @if (friends().length === 0) {
+                <p>No tienes amigos para invitar</p>
+                <p>¡Agrega algunos amigos primero desde el menú!</p>
+              } @else {
+                <p>Ninguno de tus amigos está conectado</p>
+                <p>Inténtalo de nuevo cuando alguno se conecte</p>
+              }
             </div>
           } @else {
-            @for (friend of friends(); track friend.username) {
+            @for (friend of invitableFriends(); track friend.id) {
               <div class="friend-to-invite">
                 <div class="friend-to-invite-info">
                   <span class="friend-to-invite-username">{{ friend.username }}</span>
-                  <span class="friend-to-invite-status" [class.online]="friend.online" [class.offline]="!friend.online">
-                    <span class="status-dot" [class.online]="friend.online" [class.offline]="!friend.online"></span>
-                    {{ friend.online ? 'En línea' : 'Desconectado' }}
+                  <span class="friend-to-invite-status online">
+                    <span class="status-dot online"></span>
+                    En línea
                   </span>
                 </div>
                 <button
                   type="button"
                   class="invite-btn"
                   [class.invited]="isInvited(friend.username)"
-                  [disabled]="!friend.online || isInvited(friend.username)"
+                  [disabled]="isInvited(friend.username)"
                   (click)="invite(friend.username)"
                 >
                   {{ isInvited(friend.username) ? 'Invitado' : 'Invitar' }}
@@ -58,8 +69,14 @@
       </div>
 
       <div class="lobby-actions-section">
-        <button type="button" class="btn btn-primary" disabled>Esperando jugadores...</button>
-        <button type="button" class="btn btn-secondary" routerLink="/menu">Salir del Lobby</button>
+        @if (isHost()) {
+          <button type="button" class="btn btn-primary" [disabled]="players().length < 2" (click)="startGame()">
+            {{ players().length < 2 ? 'Esperando jugadores...' : 'Comenzar partida' }}
+          </button>
+        } @else {
+          <button type="button" class="btn btn-primary" disabled>Esperando al anfitrión...</button>
+        }
+        <button type="button" class="btn btn-secondary" (click)="leaveLobby()">Salir del Lobby</button>
       </div>
     </div>
   </div>

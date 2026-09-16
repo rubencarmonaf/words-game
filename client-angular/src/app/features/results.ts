@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Game as GameService, GameMode } from '../core/services/game';
+import { Lobby as LobbyService } from '../core/services/lobby';
 
 interface VictoryParticle {
   shape: 'dot' | 'dash';
@@ -25,6 +26,7 @@ const FLAP_CELLS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 })
 export class Results implements OnInit {
   private readonly game = inject(GameService);
+  private readonly lobbyService = inject(LobbyService);
   private readonly router = inject(Router);
 
   protected readonly flapCells = FLAP_CELLS;
@@ -55,10 +57,18 @@ export class Results implements OnInit {
 
   protected playAgain(): void {
     const mode: GameMode = this.game.mode();
+    // gameId se pierde en reset() — capturarlo antes de pedir la revancha,
+    // ya que el servidor lo usa para encontrar/crear el lobby compartido
+    // (ver Lobby.rematch) y devolver a todo el grupo original al mismo sitio.
+    const gameId = this.game.gameId();
     this.game.reset();
 
     if (mode === 'versus') {
       this.router.navigateByUrl('/play/matchmaking');
+    } else if (mode === 'lobby' && gameId) {
+      this.lobbyService.rematch(gameId);
+    } else if (mode === 'lobby') {
+      this.router.navigateByUrl('/lobby');
     } else {
       this.router.navigateByUrl(`/play/setup/${mode}`);
     }
