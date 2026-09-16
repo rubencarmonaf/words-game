@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Game as GameService } from '../core/services/game';
@@ -16,12 +17,22 @@ export class Game implements OnInit {
   private readonly toast = inject(Toast);
 
   protected readonly wordControl = new FormControl('', { nonNullable: true });
+  private readonly typedWord = toSignal(this.wordControl.valueChanges, {
+    initialValue: this.wordControl.value,
+  });
+  protected readonly typedLetters = computed(() => this.typedWord().toUpperCase().split(''));
   protected readonly submitting = signal(false);
   protected readonly shakeWord = signal(false);
 
   protected readonly prefixDisplay = computed(() => this.game.prefix().toUpperCase());
   protected readonly wordCountDisplay = computed(() => `Palabras: ${this.game.words().length}`);
   protected readonly isVersus = computed(() => this.game.mode() === 'versus');
+  /** "Con amigos" es N-jugador y casual: si cualquiera pudiera forfeitear,
+   * terminaría la partida para todos los demás sin ningún coste para quien
+   * la corta. Aquí no hay forma de salir antes de tiempo — solo el reloj
+   * decide. Versus sí conserva el botón: es 1v1 y forfeitear ya es una
+   * derrota automática para quien abandona, un mecanismo que se autolimita. */
+  protected readonly canEndEarly = computed(() => this.game.mode() !== 'lobby');
   protected readonly opponentScoreDisplay = computed(() => `Rival: ${this.game.opponentScore()}`);
 
   protected readonly timerDisplay = computed(() => {
@@ -76,7 +87,8 @@ export class Game implements OnInit {
   }
 
   protected endGame(): void {
-    if (this.game.mode() === 'versus') {
+    const mode = this.game.mode();
+    if (mode === 'versus' || mode === 'lobby') {
       this.game.forfeit();
     } else {
       this.game.end();

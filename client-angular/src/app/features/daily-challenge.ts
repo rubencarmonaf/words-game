@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -30,6 +31,10 @@ export class DailyChallenge implements OnInit, OnDestroy {
   protected readonly shakeWord = signal(false);
 
   protected readonly wordControl = new FormControl('', { nonNullable: true });
+  private readonly typedWord = toSignal(this.wordControl.valueChanges, {
+    initialValue: this.wordControl.value,
+  });
+  protected readonly typedLetters = computed(() => this.typedWord().toUpperCase().split(''));
 
   protected readonly timerDisplay = computed(() => {
     const t = this.timeLeft();
@@ -119,6 +124,10 @@ export class DailyChallenge implements OnInit, OnDestroy {
     } else {
       this.toast.show(result.message ?? 'Error completando el reto', 'error');
     }
+  }
+
+  protected wordDelay(index: number): number {
+    return Math.min(index, 24) * 25;
   }
 
   private clearTimer(): void {
