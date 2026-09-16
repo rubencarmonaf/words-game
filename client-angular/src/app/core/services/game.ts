@@ -6,7 +6,11 @@ import { Auth } from './auth';
 import { Socket } from './socket';
 import { Toast } from '../../shared/services/toast';
 
-export type GameMode = 'solo' | 'cadena' | 'friendly' | 'versus';
+// 'friendly' is a local hotseat game (custom player names, same device, no
+// networking — see game-setup.ts's "Juego con Amigos"). 'lobby' is the real
+// online multiplayer started from a Lobby (server-authoritative, like versus
+// but N players and no ELO) — two different things, do not conflate them.
+export type GameMode = 'solo' | 'cadena' | 'friendly' | 'lobby' | 'versus';
 export type GameStatus = 'setup' | 'matchmaking' | 'active' | 'finished';
 
 export interface GamePlayer {
@@ -31,6 +35,10 @@ export interface SoloResults {
 export interface MultiplayerResults {
   type: 'multiplayer';
   players: GamePlayer[];
+  /** Username of the actual winner, or null on a draw. Authoritative — never
+   * infer the winner from sort position, ties (or a forfeit leaving the
+   * forfeiter's score untouched) make the top-scored entry unreliable. */
+  winner: string | null;
 }
 
 export type GameResults = SoloResults | MultiplayerResults;
@@ -74,6 +82,9 @@ interface GameEndPayload {
 
 const VERSUS_DURATION_SECONDS = 300;
 const LOCAL_MULTIPLAYER_DURATION_SECONDS = 60;
+// Debe coincidir con LOBBY_DURATION_MS en server.ts — el servidor es quien
+// realmente decide cuándo termina, esto solo pinta el contador visible.
+const LOBBY_DURATION_SECONDS = 120;
 
 /** Estado y reglas de todos los modos de partida, ported from
  * client/game/WordGame.ts. Solo/cadena/amigos se arbitran localmente contra
@@ -156,6 +167,7 @@ export class Game {
         results: {
           type: 'multiplayer',
           players: data.finalScores.map((p, i) => ({ id: `player-${i}`, username: p.username, score: p.score, words: [] })),
+          winner: data.winner,
         },
         won: data.won,
       });
@@ -212,11 +224,12 @@ export class Game {
     this.reset();
   }
 
-  /** Abandono voluntario de una partida versus en curso: el servidor decide el
-   * resultado (derrota para quien abandona) y llega por el evento gameEnd. */
+  /** Abandono voluntario de una partida versus/lobby en curso: el servidor
+   * decide el resultado (derrota para quien abandona) y llega por gameEnd. */
   forfeit(): void {
     const gameId = this.gameIdSignal();
-    if (this.modeSignal() !== 'versus' || !gameId) return;
+    const mode = this.modeSignal();
+    if ((mode !== 'versus' && mode !== 'lobby') || !gameId) return;
     this.socket.emit('forfeitGame', { gameId });
   }
 
@@ -232,7 +245,8 @@ export class Game {
       return { success: false, message: 'Ya has usado esta palabra' };
     }
 
-    if (this.modeSignal() === 'versus') {
+    const mode = this.modeSignal();
+    if (mode === 'versus' || mode === 'lobby') {
       return new Promise<WordSubmitResult>((resolve) => {
         this.pendingSubmit = resolve;
         this.socket.emit('submitWord', { gameId: this.gameIdSignal(), word: trimmed });
@@ -288,7 +302,12 @@ export class Game {
   private buildMultiplayerOutcome(): GameOutcome {
     const localPlayer = this.playersSignal()[0];
     const sorted = [...this.playersSignal()].sort((a, b) => b.score - a.score);
-    return { results: { type: 'multiplayer', players: sorted }, won: sorted[0] === localPlayer };
+    // A tie at the top is a draw, not a win for whoever happened to sort first.
+    const winner = sorted.length && sorted[0].score > (sorted[1]?.score ?? -1) ? sorted[0] : null;
+    return {
+      results: { type: 'multiplayer', players: sorted, winner: winner?.username ?? null },
+      won: winner === localPlayer,
+    };
   }
 
   private startTimer(): void {
@@ -298,11 +317,14 @@ export class Game {
       return;
     }
 
-    this.timeRemainingSignal.set(mode === 'versus' ? VERSUS_DURATION_SECONDS : LOCAL_MULTIPLAYER_DURATION_SECONDS);
+    const serverAuthoritative = mode === 'versus' || mode === 'lobby';
+    this.timeRemainingSignal.set(
+      mode === 'versus' ? VERSUS_DURATION_SECONDS : mode === 'lobby' ? LOBBY_DURATION_SECONDS : LOCAL_MULTIPLAYER_DURATION_SECONDS,
+    );
     this.timer = setInterval(() => {
       this.timeRemainingSignal.update((t) => t - 1);
       if (this.timeRemainingSignal() <= 0) {
-        if (mode === 'versus') {
+        if (serverAuthoritative) {
           // El servidor tiene su propio timeout corriendo en paralelo y decide
           // el final real; aquí solo se congela el contador visible.
           this.clearTimer();

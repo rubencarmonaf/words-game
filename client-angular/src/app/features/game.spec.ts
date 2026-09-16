@@ -176,4 +176,34 @@ describe('Game feature', () => {
 
     expect(navigated).toEqual(['/play/results']);
   });
+
+  it('shows "Terminar Juego" for solo and versus, but not for a lobby ("con amigos") match', async () => {
+    await setup();
+    await startSoloGame();
+    fixture = TestBed.createComponent(GameFeature);
+    fixture.detectChanges();
+    expect(component['canEndEarly']()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.game-controls')).toBeTruthy();
+  });
+
+  it('hides "Terminar Juego" in a lobby match, since any player forfeiting would end it for everyone else for free', async () => {
+    await setup();
+    gameService.setMode('lobby');
+    socket.push('gameStart', {
+      gameId: 'g1',
+      prefix: 'con',
+      players: [
+        { userId: 'u1', username: 'Yo' },
+        { userId: 'u2', username: 'Ana' },
+        { userId: 'u3', username: 'Beto' },
+      ],
+    });
+
+    fixture = TestBed.createComponent(GameFeature);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(component['canEndEarly']()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.game-controls')).toBeFalsy();
+  });
 });

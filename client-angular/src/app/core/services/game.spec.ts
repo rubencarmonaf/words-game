@@ -128,6 +128,7 @@ describe('Game', () => {
         { id: 'player-0', username: 'Ana', words: ['decir'], score: 1 },
         { id: 'player-1', username: 'Beto', words: [], score: 0 },
       ],
+      winner: 'Ana',
     });
   });
 
@@ -311,6 +312,7 @@ describe('Game', () => {
             { id: 'player-0', username: 'Rival', score: 3, words: [] },
             { id: 'player-1', username: 'Yo', score: 1, words: [] },
           ],
+          winner: 'Rival',
         },
         won: false,
       });
