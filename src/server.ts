@@ -13,6 +13,7 @@ import Game from './models/Game';
 import Friendship from './models/Friendship';
 import DailyChallenge from './models/DailyChallenge';
 import DailyChallengeCompletion from './models/DailyChallengeCompletion';
+import Message from './models/Message';
 
 // Import services
 import { dictionaryService } from './utils/dictionary';
@@ -414,9 +415,54 @@ app.put('/api/profile', authenticateToken, async (req: any, res) => {
 app.get('/api/friends', authenticateToken, async (req: any, res) => {
   try {
     const friends = await Friendship.getFriends(req.user.userId);
-    res.json({ success: true, data: friends });
+    const withPresence = friends.map((friend: any) => ({
+      ...friend,
+      id: friend.id.toString(),
+      online: isUserOnline(friend.id.toString())
+    }));
+    res.json({ success: true, data: withPresence });
   } catch (error) {
     console.error('Error obteniendo amigos:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Solicitudes de amistad pendientes recibidas por el usuario autenticado
+app.get('/api/friends/requests', authenticateToken, async (req: any, res) => {
+  try {
+    const requests = await (Friendship as any).getPendingRequests(req.user.userId);
+    const data = requests.map((r: any) => ({
+      id: r._id.toString(),
+      from: { id: r.requester._id.toString(), username: r.requester.username }
+    }));
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error obteniendo solicitudes de amistad:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Aceptar o rechazar una solicitud de amistad pendiente
+app.post('/api/friends/respond', authenticateToken, async (req: any, res) => {
+  try {
+    const { requestId, accept } = req.body;
+    if (!requestId || typeof accept !== 'boolean') {
+      res.status(400).json({ success: false, message: 'requestId y accept son requeridos' });
+      return;
+    }
+
+    const friendship = await (Friendship as any).findById(requestId);
+    if (!friendship || friendship.addressee !== req.user.userId || friendship.status !== 'pending') {
+      res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+      return;
+    }
+
+    friendship.status = accept ? 'accepted' : 'declined';
+    await friendship.save();
+
+    res.json({ success: true, message: accept ? 'Solicitud aceptada' : 'Solicitud rechazada' });
+  } catch (error) {
+    console.error('Error respondiendo solicitud de amistad:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
@@ -467,6 +513,139 @@ app.post('/api/friends/request', authenticateToken, async (req: any, res) => {
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
+
+// Mensajes directos (chat 1:1) — persistidos siempre, para que un mensaje
+// mandado mientras el destinatario está desconectado no se pierda: al volver
+// a conectarse o simplemente reabrir el hilo, ahí sigue.
+
+// Conteo de mensajes no leídos por remitente, para el badge del widget flotante
+app.get('/api/messages/unread-counts', authenticateToken, async (req: any, res) => {
+  try {
+    const counts = await (Message as any).aggregate([
+      { $match: { to: req.user.userId, read: false } },
+      { $group: { _id: '$from', count: { $sum: 1 } } }
+    ]);
+    const data: Record<string, number> = {};
+    for (const row of counts) data[row._id] = row.count;
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error obteniendo mensajes no leídos:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Historial de un hilo con un amigo — abrir el hilo marca como leído todo lo recibido
+app.get('/api/messages/:friendId', authenticateToken, async (req: any, res) => {
+  try {
+    const { friendId } = req.params;
+
+    const status = await (Friendship as any).getFriendshipStatus(req.user.userId, friendId);
+    if (status !== 'accepted') {
+      res.status(403).json({ success: false, message: 'Solo puedes chatear con amigos' });
+      return;
+    }
+
+    const messages = await (Message as any)
+      .find({
+        $or: [
+          { from: req.user.userId, to: friendId },
+          { from: friendId, to: req.user.userId }
+        ]
+      })
+      .sort({ createdAt: 1 })
+      .limit(200);
+
+    await (Message as any).updateMany({ from: friendId, to: req.user.userId, read: false }, { read: true });
+
+    res.json({
+      success: true,
+      data: messages.map((m: any) => ({
+        id: m._id.toString(),
+        from: m.from,
+        to: m.to,
+        text: m.text,
+        createdAt: m.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error obteniendo historial de mensajes:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Sockets activos por usuario autenticado (independiente de la cola de
+// matchmaking, para poder localizar a un jugador durante toda la vida de una
+// partida o lobby). Un usuario puede tener más de un socket vivo a la vez —
+// p.ej. la app principal más una ventana de chat abierta aparte — así que
+// esto es un Set por usuario, no un único socketId; ver los helpers debajo.
+const userSockets = new Map<string, Set<string>>();
+
+function addUserSocket(userId: string, socketId: string): void {
+  if (!userSockets.has(userId)) userSockets.set(userId, new Set());
+  userSockets.get(userId)!.add(socketId);
+}
+
+// Devuelve true si ese era el último socket de este usuario (es decir, ahora
+// está realmente desconectado) — el disconnect handler solo debe forfeitear
+// partidas/lobbies/avisar "offline" cuando esto da true, no en cada pestaña
+// que se cierre mientras queden otras abiertas.
+function removeUserSocket(userId: string, socketId: string): boolean {
+  const sockets = userSockets.get(userId);
+  if (!sockets) return true;
+  sockets.delete(socketId);
+  if (sockets.size === 0) {
+    userSockets.delete(userId);
+    return true;
+  }
+  return false;
+}
+
+function isUserOnline(userId: string): boolean {
+  return (userSockets.get(userId)?.size ?? 0) > 0;
+}
+
+function emitToUser(userId: string, event: string, payload?: unknown): void {
+  const sockets = userSockets.get(userId);
+  if (!sockets) return;
+  for (const socketId of sockets) io.to(socketId).emit(event, payload);
+}
+
+interface LobbyPlayer {
+  userId: string;
+  username: string;
+}
+
+interface LobbyState {
+  lobbyId: string;
+  hostId: string;
+  players: LobbyPlayer[];
+  invited: Set<string>;
+  started: boolean;
+}
+
+// Lobbies "Con amigos" en espera de arrancar, en memoria igual que la cola de
+// matchmaking — no necesitan persistencia, solo existen mientras se organiza la partida
+const lobbies = new Map<string, LobbyState>();
+
+interface FinishedLobbyGame {
+  hostId: string;
+  players: LobbyPlayer[];
+  rematchLobbyId?: string;
+}
+
+// Partidas "con amigos" ya terminadas, recordadas brevemente para que
+// "Jugar de Nuevo" pueda devolver a todo el grupo al mismo lobby en vez de
+// que cada uno cree uno nuevo por su cuenta — ver lobby:rematch más abajo.
+const finishedLobbyGames = new Map<string, FinishedLobbyGame>();
+
+function serializeLobby(lobby: LobbyState) {
+  return {
+    lobbyId: lobby.lobbyId,
+    hostId: lobby.hostId,
+    players: lobby.players,
+    playerCount: lobby.players.length
+  };
+}
 
 // Matchmaking
 const matchmakingQueue = new Map<string, MatchmakingPlayer>();
@@ -626,17 +805,17 @@ app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, re
   }
 });
 
-// ---------- Partidas Versus (1v1 arbitradas por el servidor) ----------
+// ---------- Partidas Versus y Con amigos (arbitradas por el servidor) ----------
 const VERSUS_PREFIXES = ['de', 'con', 'pre', 'ex', 'in', 'ca', 'ma', 'pa', 'ba', 'to', 'ver', 'sal', 'fin', 'mar', 'sol', 'cor', 'ter', 'res'];
 const VERSUS_DURATION_MS = 5 * 60 * 1000;
+// "Con amigos" es casual (no afecta ELO) y N-jugador, así que se juega a un
+// ritmo más corto que el 1v1 rankeado — coherente con el resto del catálogo casual.
+const LOBBY_DURATION_MS = 2 * 60 * 1000;
 
-// Socket activo por usuario autenticado (independiente de la cola de matchmaking,
-// para poder localizar a un jugador durante toda la vida de una partida)
-const userSockets = new Map<string, string>();
-
-// Partidas versus en curso: el documento Game vive en memoria durante la partida
-// y se persiste en cada palabra/al terminar, evitando una relectura por jugada
-const activeGames = new Map<string, { gameDoc: any; timer: NodeJS.Timeout }>();
+// Partidas versus/amigos en curso: el documento Game vive en memoria durante la partida
+// y se persiste en cada palabra/al terminar, evitando una relectura por jugada.
+// hostId solo se rellena para partidas "con amigos" (versus no tiene anfitrión).
+const activeGames = new Map<string, { gameDoc: any; timer: NodeJS.Timeout; hostId?: string }>();
 
 async function startVersusGame(gameId: string, player1: MatchmakingPlayer, player2: MatchmakingPlayer): Promise<void> {
   const prefix = VERSUS_PREFIXES[Math.floor(Math.random() * VERSUS_PREFIXES.length)];
@@ -654,7 +833,7 @@ async function startVersusGame(gameId: string, player1: MatchmakingPlayer, playe
   gameDoc.start();
   await gameDoc.save();
 
-  const timer = setTimeout(() => { finishVersusGame(gameId, 'timeout'); }, VERSUS_DURATION_MS);
+  const timer = setTimeout(() => { finishGame(gameId, 'timeout'); }, VERSUS_DURATION_MS);
   activeGames.set(gameId, { gameDoc, timer });
 
   const startPayload = {
@@ -666,37 +845,72 @@ async function startVersusGame(gameId: string, player1: MatchmakingPlayer, playe
     ]
   };
 
-  const socket1 = userSockets.get(player1.userId);
-  const socket2 = userSockets.get(player2.userId);
-  if (socket1) io.to(socket1).emit('gameStart', startPayload);
-  if (socket2) io.to(socket2).emit('gameStart', startPayload);
+  emitToUser(player1.userId, 'gameStart', startPayload);
+  emitToUser(player2.userId, 'gameStart', startPayload);
 }
 
-async function finishVersusGame(gameId: string, reason: 'timeout' | 'forfeit', forfeitedBy?: string): Promise<void> {
+// Arranca una partida "Con amigos" (N jugadores, casual, sin ELO) a partir de
+// un lobby ya lleno — reutiliza el mismo motor server-authoritative que
+// startVersusGame en vez de duplicar la lógica de palabras/marcador.
+async function startLobbyGame(lobby: LobbyState): Promise<void> {
+  const gameId = lobby.lobbyId;
+  const prefix = VERSUS_PREFIXES[Math.floor(Math.random() * VERSUS_PREFIXES.length)];
+
+  const gameDoc = new (Game as any)({
+    gameId,
+    players: lobby.players.map((p) => ({ userId: p.userId, username: p.username, words: [], score: 0 })),
+    prefix,
+    gameType: 'lobby',
+    duration: LOBBY_DURATION_MS / 1000
+  });
+  gameDoc.start();
+  await gameDoc.save();
+
+  const timer = setTimeout(() => { finishGame(gameId, 'timeout'); }, LOBBY_DURATION_MS);
+  activeGames.set(gameId, { gameDoc, timer, hostId: lobby.hostId });
+
+  const startPayload = {
+    gameId,
+    prefix,
+    players: lobby.players.map((p) => ({ userId: p.userId, username: p.username }))
+  };
+
+  for (const p of lobby.players) emitToUser(p.userId, 'gameStart', startPayload);
+}
+
+// Termina una partida versus (1v1) o "con amigos" (N jugadores). El ganador es
+// quien más palabras válidas tiene al acabar el tiempo; en un abandono, quien
+// abandona queda excluido de ganar pero la partida termina para todos por
+// igual — no hay continuidad parcial para el resto (fuera de alcance por ahora).
+async function finishGame(gameId: string, reason: 'timeout' | 'forfeit', forfeitedBy?: string): Promise<void> {
   const active = activeGames.get(gameId);
   if (!active) return;
   activeGames.delete(gameId);
   clearTimeout(active.timer);
 
   const { gameDoc } = active;
-  const [p1, p2] = gameDoc.players;
+  const players = gameDoc.players;
+  const isVersus = gameDoc.gameType === 'versus';
 
   let winnerId: string | null;
   if (reason === 'forfeit' && forfeitedBy) {
-    winnerId = p1.userId === forfeitedBy ? p2.userId : p1.userId;
-  } else if (p1.score === p2.score) {
-    winnerId = null; // empate: sin cambio de ELO para nadie
+    const contenders = players.filter((p: any) => p.userId !== forfeitedBy);
+    const sorted = [...contenders].sort((a: any, b: any) => b.score - a.score);
+    winnerId = sorted[0]?.userId ?? null;
   } else {
-    winnerId = p1.score > p2.score ? p1.userId : p2.userId;
+    const sorted = [...players].sort((a: any, b: any) => b.score - a.score);
+    // Empate (incl. entre más de dos jugadores): nadie gana, sin cambio de ELO
+    winnerId = sorted.length && sorted[0].score > (sorted[1]?.score ?? -1) ? sorted[0].userId : null;
   }
 
   gameDoc.end(winnerId || undefined);
   await gameDoc.save();
 
-  if (winnerId) {
-    const loserId = p1.userId === winnerId ? p2.userId : p1.userId;
+  // El ELO solo existe en versus (1v1 rankeado); "con amigos" nunca lo toca
+  if (winnerId && isVersus) {
+    const loser = players.find((p: any) => p.userId !== winnerId);
     const winnerUser = await User.findById(winnerId);
-    const loserUser = await User.findById(loserId);
+    const loserUser = loser ? await User.findById(loser.userId) : null;
     if (winnerUser && loserUser) {
       const winnerEloBefore = winnerUser.elo;
       const loserEloBefore = loserUser.elo;
@@ -707,21 +921,26 @@ async function finishVersusGame(gameId: string, reason: 'timeout' | 'forfeit', f
     }
   }
 
-  const winnerUsername = winnerId ? (p1.userId === winnerId ? p1.username : p2.username) : null;
-  const finalScores = [p1, p2]
-    .slice()
+  const winnerUsername = winnerId ? players.find((p: any) => p.userId === winnerId)?.username ?? null : null;
+  const finalScores = [...players]
     .sort((a: any, b: any) => b.score - a.score)
     .map((p: any) => ({ username: p.username, score: p.score }));
 
-  for (const p of [p1, p2]) {
-    const socketId = userSockets.get(p.userId);
-    if (socketId) {
-      io.to(socketId).emit('gameEnd', {
-        winner: winnerUsername,
-        finalScores,
-        won: winnerId === p.userId
-      });
-    }
+  for (const p of players) {
+    emitToUser(p.userId, 'gameEnd', {
+      winner: winnerUsername,
+      finalScores,
+      won: winnerId === p.userId
+    });
+  }
+
+  // Recordado para que "Jugar de Nuevo" pueda devolver a todo el grupo al
+  // mismo lobby (ver lobby:rematch) en vez de que cada uno cree el suyo
+  if (!isVersus && active.hostId) {
+    finishedLobbyGames.set(gameId, {
+      hostId: active.hostId,
+      players: players.map((p: any) => ({ userId: p.userId, username: p.username }))
+    });
   }
 }
 
@@ -729,18 +948,27 @@ async function finishVersusGame(gameId: string, reason: 'timeout' | 'forfeit', f
 io.on('connection', (socket) => {
   console.log('Usuario conectado:', socket.id);
 
-  socket.on('authenticate', (token: string) => {
+  socket.on('authenticate', async (token: string) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: string; username: string };
       (socket as any).userId = decoded.userId;
       (socket as any).username = decoded.username;
-      userSockets.set(decoded.userId, socket.id);
+
+      // Un usuario puede tener varios sockets a la vez (la app principal más
+      // una ventana de chat aparte, p.ej.) — solo avisamos "en línea" a sus
+      // amigos en la transición real de 0 a 1 sockets, no en cada ventana nueva.
+      const wasOnline = isUserOnline(decoded.userId);
+      addUserSocket(decoded.userId, socket.id);
 
       // Update matchmaking queue with socket ID
       if (matchmakingQueue.has(decoded.userId)) {
         const player = matchmakingQueue.get(decoded.userId)!;
         player.socketId = socket.id;
         matchmakingQueue.set(decoded.userId, player);
+      }
+
+      if (!wasOnline) {
+        await notifyFriendsOfPresence(decoded.userId, 'friend:online');
       }
     } catch (error) {
       socket.disconnect();
@@ -786,33 +1014,228 @@ io.on('connection', (socket) => {
 
     const player = gameDoc.players.find((p: any) => p.userId === authSocket.userId);
     const payload = { word, playerId: authSocket.userId, score: player?.score || 0 };
-    for (const p of gameDoc.players) {
-      const socketId = userSockets.get(p.userId);
-      if (socketId) io.to(socketId).emit('wordSubmitted', payload);
-    }
+    for (const p of gameDoc.players) emitToUser(p.userId, 'wordSubmitted', payload);
   });
 
-  // Abandono voluntario de una partida versus en curso: cuenta como derrota
+  // Abandono voluntario de una partida versus o con amigos en curso: cuenta como derrota
   socket.on('forfeitGame', (data: { gameId: string }) => {
     const authSocket = socket as any;
     if (!authSocket.userId || !data?.gameId) return;
-    finishVersusGame(data.gameId, 'forfeit', authSocket.userId);
+    finishGame(data.gameId, 'forfeit', authSocket.userId);
   });
 
-  socket.on('disconnect', () => {
-    const authSocket = socket as any;
-    if (authSocket.userId) {
-      matchmakingQueue.delete(authSocket.userId);
-      userSockets.delete(authSocket.userId);
+  // ---------- Lobby "Con amigos" ----------
 
-      for (const [gameId, active] of activeGames) {
-        if (active.gameDoc.players.some((p: any) => p.userId === authSocket.userId)) {
-          finishVersusGame(gameId, 'forfeit', authSocket.userId);
-        }
+  socket.on('lobby:create', () => {
+    const authSocket = socket as any;
+    if (!authSocket.userId) return;
+
+    // Un anfitrión solo puede tener un lobby abierto a la vez
+    for (const [id, existing] of lobbies) {
+      if (existing.hostId === authSocket.userId) lobbies.delete(id);
+    }
+
+    const lobbyId = new mongoose.Types.ObjectId().toString();
+    const lobby: LobbyState = {
+      lobbyId,
+      hostId: authSocket.userId,
+      players: [{ userId: authSocket.userId, username: authSocket.username }],
+      invited: new Set(),
+      started: false
+    };
+    lobbies.set(lobbyId, lobby);
+    socket.join(`lobby:${lobbyId}`);
+    socket.emit('lobby:update', serializeLobby(lobby));
+  });
+
+  socket.on('lobby:invite', async (data: { lobbyId: string; friendUsername: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.lobbyId || !data?.friendUsername) return;
+
+    const lobby = lobbies.get(data.lobbyId);
+    if (!lobby || lobby.hostId !== authSocket.userId) {
+      socket.emit('lobby:error', 'No tienes permiso para invitar en este lobby');
+      return;
+    }
+
+    const friend = await User.findOne({ username: data.friendUsername });
+    if (!friend) {
+      socket.emit('lobby:error', 'Usuario no encontrado');
+      return;
+    }
+
+    // Solo se puede invitar a amigos reales y confirmados, nunca a cualquier usuario
+    const status = await (Friendship as any).getFriendshipStatus(authSocket.userId, friend._id.toString());
+    if (status !== 'accepted') {
+      socket.emit('lobby:error', 'Solo puedes invitar a amigos');
+      return;
+    }
+
+    if (!isUserOnline(friend._id.toString())) {
+      socket.emit('lobby:error', `${data.friendUsername} no está conectado`);
+      return;
+    }
+
+    lobby.invited.add(data.friendUsername);
+    emitToUser(friend._id.toString(), 'lobby:invited', { lobbyId: lobby.lobbyId, hostUsername: authSocket.username });
+    io.to(`lobby:${lobby.lobbyId}`).emit('lobby:update', serializeLobby(lobby));
+  });
+
+  socket.on('lobby:join', (data: { lobbyId: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.lobbyId) return;
+
+    const lobby = lobbies.get(data.lobbyId);
+    if (!lobby || lobby.started) {
+      socket.emit('lobby:error', 'Este lobby ya no está disponible');
+      return;
+    }
+    if (lobby.players.length >= 15) {
+      socket.emit('lobby:error', 'El lobby está lleno');
+      return;
+    }
+
+    if (!lobby.players.some((p) => p.userId === authSocket.userId)) {
+      lobby.players.push({ userId: authSocket.userId, username: authSocket.username });
+    }
+    socket.join(`lobby:${lobby.lobbyId}`);
+    io.to(`lobby:${lobby.lobbyId}`).emit('lobby:update', serializeLobby(lobby));
+  });
+
+  socket.on('lobby:leave', (data: { lobbyId: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.lobbyId) return;
+    leaveLobby(data.lobbyId, authSocket.userId);
+  });
+
+  socket.on('lobby:start', (data: { lobbyId: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.lobbyId) return;
+
+    const lobby = lobbies.get(data.lobbyId);
+    if (!lobby || lobby.hostId !== authSocket.userId) {
+      socket.emit('lobby:error', 'Solo el anfitrión puede iniciar la partida');
+      return;
+    }
+    if (lobby.players.length < 2) {
+      socket.emit('lobby:error', 'Necesitas al menos 2 jugadores para empezar');
+      return;
+    }
+
+    lobby.started = true;
+    lobbies.delete(lobby.lobbyId);
+    startLobbyGame(lobby);
+  });
+
+  // Pide volver al mismo grupo tras una partida "con amigos" ya terminada.
+  // El primero en pedirlo crea el lobby de revancha; los siguientes se
+  // enteran de ese mismo lobbyId en vez de crear cada uno el suyo — así da
+  // igual el orden en que cada jugador pulse "Jugar de Nuevo".
+  socket.on('lobby:rematch', (data: { gameId: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.gameId) return;
+
+    const finished = finishedLobbyGames.get(data.gameId);
+    if (!finished || !finished.players.some((p) => p.userId === authSocket.userId)) {
+      socket.emit('lobby:error', 'Esa partida ya no está disponible para revancha');
+      return;
+    }
+
+    if (!finished.rematchLobbyId || !lobbies.has(finished.rematchLobbyId)) {
+      const lobbyId = new mongoose.Types.ObjectId().toString();
+      lobbies.set(lobbyId, {
+        lobbyId,
+        hostId: finished.hostId,
+        players: [],
+        invited: new Set(),
+        started: false
+      });
+      finished.rematchLobbyId = lobbyId;
+    }
+
+    socket.emit('lobby:rematch-ready', { lobbyId: finished.rematchLobbyId });
+  });
+
+  // Mensaje directo a un amigo: se persiste siempre (ver /api/messages arriba)
+  // y además se retransmite en vivo a quien lo manda (para que aparezca en su
+  // propio hilo con el id/fecha reales) y al destinatario si está conectado.
+  socket.on('dm:send', async (data: { to: string; text: string }) => {
+    const authSocket = socket as any;
+    if (!authSocket.userId || !data?.to) return;
+
+    const text = String(data.text || '').trim().slice(0, 1000);
+    if (!text) return;
+
+    const status = await (Friendship as any).getFriendshipStatus(authSocket.userId, data.to);
+    if (status !== 'accepted') {
+      socket.emit('error', 'Solo puedes escribir a tus amigos');
+      return;
+    }
+
+    const message = await (Message as any).create({ from: authSocket.userId, to: data.to, text });
+    const payload = {
+      id: message._id.toString(),
+      from: message.from,
+      to: message.to,
+      text: message.text,
+      createdAt: message.createdAt
+    };
+
+    socket.emit('dm:message', payload);
+    emitToUser(data.to, 'dm:message', payload);
+  });
+
+  socket.on('disconnect', async () => {
+    const authSocket = socket as any;
+    if (!authSocket.userId) return;
+
+    // Si el usuario tiene otro socket vivo (p.ej. la app principal sigue
+    // abierta mientras se cierra solo una ventana de chat), no está
+    // realmente desconectado — no forfeitear partidas ni avisar "offline".
+    const fullyOffline = removeUserSocket(authSocket.userId, socket.id);
+    if (!fullyOffline) return;
+
+    matchmakingQueue.delete(authSocket.userId);
+
+    for (const [gameId, active] of activeGames) {
+      if (active.gameDoc.players.some((p: any) => p.userId === authSocket.userId)) {
+        finishGame(gameId, 'forfeit', authSocket.userId);
       }
     }
+
+    for (const lobbyId of Array.from(lobbies.keys())) {
+      leaveLobby(lobbyId, authSocket.userId);
+    }
+
+    await notifyFriendsOfPresence(authSocket.userId, 'friend:offline');
   });
 });
+
+// Avisa en vivo a los amigos ya conectados de que este usuario acaba de
+// conectarse/desconectarse, para que su estado "En línea" se actualice sin
+// que tengan que recargar la página — antes solo se calculaba una vez, al
+// cargar /api/friends, y quedaba obsoleto en cuanto alguien se conectaba después.
+async function notifyFriendsOfPresence(userId: string, event: 'friend:online' | 'friend:offline'): Promise<void> {
+  const friends = await Friendship.getFriends(userId);
+  for (const friend of friends) {
+    emitToUser(friend.id.toString(), event, { userId });
+  }
+}
+
+// Saca a un jugador de un lobby: si era el anfitrión, el lobby se disuelve
+// para todos; si era un invitado, simplemente se actualiza la lista en vivo.
+function leaveLobby(lobbyId: string, userId: string): void {
+  const lobby = lobbies.get(lobbyId);
+  if (!lobby || !lobby.players.some((p) => p.userId === userId)) return;
+
+  if (lobby.hostId === userId) {
+    lobbies.delete(lobbyId);
+    io.to(`lobby:${lobbyId}`).emit('lobby:disbanded');
+  } else {
+    lobby.players = lobby.players.filter((p) => p.userId !== userId);
+    io.to(`lobby:${lobbyId}`).emit('lobby:update', serializeLobby(lobby));
+  }
+}
 
 // El rango de ELO aceptable empieza estrecho (partidas parejas) y se ensancha
 // cuanto más lleva alguien esperando, para no dejar a nadie en cola para siempre
@@ -854,16 +1277,19 @@ setInterval(() => {
         matchmakingQueue.delete(player1.userId);
         matchmakingQueue.delete(player2.userId);
 
-        // Notify players — se busca el socket vivo en userSockets en vez de fiarse
-        // del socketId guardado en la cola, que puede quedar obsoleto si el socket
-        // se autentica antes de que el POST /matchmaking/join termine de guardarlo
-        const socket1 = userSockets.get(player1.userId) || player1.socketId;
-        const socket2 = userSockets.get(player2.userId) || player2.socketId;
-        if (socket1) {
-          io.to(socket1).emit('matchFound', { gameId, opponent: player2.username });
+        // Notify players — se prefiere el/los socket(s) vivos en userSockets;
+        // el socketId guardado en la cola es solo el respaldo para la carrera
+        // en la que el socket se autentica antes de que el POST
+        // /matchmaking/join termine de guardarlo
+        if (isUserOnline(player1.userId)) {
+          emitToUser(player1.userId, 'matchFound', { gameId, opponent: player2.username });
+        } else if (player1.socketId) {
+          io.to(player1.socketId).emit('matchFound', { gameId, opponent: player2.username });
         }
-        if (socket2) {
-          io.to(socket2).emit('matchFound', { gameId, opponent: player1.username });
+        if (isUserOnline(player2.userId)) {
+          emitToUser(player2.userId, 'matchFound', { gameId, opponent: player1.username });
+        } else if (player2.socketId) {
+          io.to(player2.socketId).emit('matchFound', { gameId, opponent: player1.username });
         }
 
         // Pequeña pausa antes de arrancar la partida para que se vea el aviso de emparejamiento

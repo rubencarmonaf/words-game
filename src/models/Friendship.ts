@@ -4,10 +4,12 @@ import { IFriendship, IFriendshipModel } from '../types';
 const friendshipSchema = new Schema<IFriendship>({
   requester: {
     type: String,
+    ref: 'User',
     required: true
   },
   addressee: {
     type: String,
+    ref: 'User',
     required: true
   },
   status: {
@@ -63,16 +65,19 @@ friendshipSchema.statics.getFriends = async function(userId: string) {
       { requester: userId, status: 'accepted' },
       { addressee: userId, status: 'accepted' }
     ]
-  }).populate('requester addressee', 'username elo');
+  }).populate('requester addressee', 'username elo avatar');
 
   return friendships.map((friendship: any) => {
-    const friend = friendship.requester.toString() === userId 
-      ? friendship.addressee 
+    // requester/addressee are populated User documents here, not plain id
+    // strings — compare by _id, not by the (unrelated) default toString()
+    const friend = friendship.requester._id.toString() === userId
+      ? friendship.addressee
       : friendship.requester;
     return {
       id: friend._id,
       username: friend.username,
-      elo: friend.elo
+      elo: friend.elo,
+      avatar: friend.avatar
     };
   });
 };

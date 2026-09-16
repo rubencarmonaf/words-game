@@ -50,7 +50,7 @@ export interface IGame extends Document {
   gameId: string;
   players: IGamePlayer[];
   prefix: string;
-  gameType: 'versus' | 'friendly';
+  gameType: 'versus' | 'lobby';
   status: 'waiting' | 'active' | 'finished';
   duration: number;
   startedAt?: Date;
@@ -84,6 +84,16 @@ export interface IFriendshipModel {
   getFriends(userId: string): Promise<any[]>;
   getFriendshipStatus(userId1: string, userId2: string): Promise<string | null>;
   getPendingRequests(userId: string): Promise<any[]>;
+}
+
+// Direct message (1:1 chat) Types
+export interface IMessage extends Document {
+  _id: string;
+  from: string;
+  to: string;
+  text: string;
+  read: boolean;
+  createdAt: Date;
 }
 
 // Matchmaking Types
@@ -132,7 +142,7 @@ export interface WordValidationResponse {
 export interface GameConfig {
   prefix: string;
   duration: number;
-  gameType: 'versus' | 'friendly';
+  gameType: 'versus' | 'lobby';
   players: string[];
 }
 
