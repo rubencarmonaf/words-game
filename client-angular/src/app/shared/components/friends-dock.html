@@ -1,0 +1,90 @@
+<div class="friends-dock" [class.expanded]="expanded()">
+  @if (!expanded()) {
+    <button type="button" class="dock-toggle" (click)="toggle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
+      </svg>
+      <span>Amigos</span>
+      @if (totalUnread() > 0) {
+        <span class="dock-badge">{{ totalUnread() }}</span>
+      }
+    </button>
+  } @else {
+    <div class="dock-panel">
+      <div class="dock-panel-header">
+        <span class="dock-panel-title">Amigos</span>
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="!showAddFriend()"
+          [class.btn-secondary]="showAddFriend()"
+          (click)="toggleAddFriend()"
+        >
+          {{ showAddFriend() ? 'Cancelar' : '+ Agregar' }}
+        </button>
+        <button type="button" class="dock-close" (click)="toggle()" aria-label="Contraer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        </button>
+      </div>
+
+      <div class="dock-body">
+        @if (showAddFriend()) {
+          <div class="add-friend-form">
+            <input
+              type="text"
+              [formControl]="addFriendControl"
+              placeholder="Nombre de usuario"
+              autocomplete="off"
+              (keydown.enter)="submitAddFriend()"
+            />
+            <button type="button" class="btn btn-secondary" [disabled]="!addFriendControl.value.trim()" (click)="submitAddFriend()">
+              Enviar
+            </button>
+          </div>
+        }
+
+        @if (pendingRequests().length > 0) {
+          <div class="friend-requests">
+            @for (request of pendingRequests(); track request.id) {
+              <div class="friend-request">
+                <span>{{ request.from.username }} quiere ser tu amigo</span>
+                <div class="friend-request-actions">
+                  <button type="button" class="btn btn-primary" (click)="respondToRequest(request.id, true)">Aceptar</button>
+                  <button type="button" class="btn btn-secondary" (click)="respondToRequest(request.id, false)">Rechazar</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="friends-list">
+          @if (friendsList().length === 0) {
+            <div class="no-friends">
+              <p>No tienes amigos aún</p>
+              <p>¡Agrega algunos para jugar juntos!</p>
+            </div>
+          } @else {
+            @for (friend of friendsList(); track friend.id) {
+              <div class="friend-row" (dblclick)="openChat(friend.id)" title="Doble clic para chatear">
+                <ww-avatar [options]="friend.avatar" size="sm" />
+                <span class="friend-row-info">
+                  <span class="friend-row-name">
+                    {{ friend.username }}
+                    @if (unreadCounts()[friend.id]; as count) {
+                      <span class="board-badge board-badge--amber">{{ count }}</span>
+                    }
+                  </span>
+                  <span class="friend-row-status" [class.online]="friend.online" [class.offline]="!friend.online">
+                    <span class="status-dot" [class.online]="friend.online" [class.offline]="!friend.online"></span>
+                    {{ friend.online ? 'En línea' : 'Desconectado' }}
+                  </span>
+                </span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>
