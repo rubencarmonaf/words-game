@@ -45,10 +45,10 @@
           <span class="player-score">{{ o.results.totalWords }} palabras</span>
         </div>
       } @else {
-        @for (player of o.results.players; track player.id; let i = $index) {
-          <div class="player-result" [class.winner]="i === 0">
+        @for (player of o.results.players; track player.id) {
+          <div class="player-result" [class.winner]="player.username === o.results.winner">
             <span class="player-name">
-              @if (i === 0) {
+              @if (player.username === o.results.winner) {
                 <span class="board-badge board-badge--amber">Ganador</span>
               }
               {{ player.username }}

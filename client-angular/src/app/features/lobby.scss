@@ -58,7 +58,7 @@ header {
 .friends-to-invite {
   background: var(--ww-bg-2);
   border: 1px solid var(--ww-line);
-  border-radius: 15px;
+  border-radius: var(--ww-radius);
   padding: 18px;
   max-height: 400px;
   overflow-y: auto;
@@ -72,7 +72,7 @@ header {
   padding: 14px;
   background: var(--ww-surface);
   border: 1px solid var(--ww-line);
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 10px;
   transition: box-shadow 0.2s ease;
 }
@@ -85,8 +85,10 @@ header {
   margin-bottom: 0;
 }
 .lobby-player.host {
-  background: rgba(245, 166, 35, 0.08);
-  border-color: rgba(245, 166, 35, 0.25);
+  /* Lima, no ámbar: esta pantalla se entra desde el botón lima "Crear lobby"
+     del menú, y lima es el rol de color real de "Con amigos" en DESIGN.md. */
+  background: rgba(95, 217, 122, 0.08);
+  border-color: rgba(95, 217, 122, 0.25);
 }
 
 .player-info,
@@ -134,10 +136,11 @@ header {
 }
 
 .invite-btn {
-  padding: 6px 14px;
+  padding: 10px 16px;
+  min-height: 40px;
   font-size: 0.82rem;
   font-weight: 700;
-  background: var(--ww-accent);
+  background: var(--line-lime);
   color: var(--ww-accent-ink);
   border: none;
   border-radius: 999px;
@@ -145,11 +148,12 @@ header {
   transition: background-color 0.2s ease;
 }
 .invite-btn:hover:not(:disabled) {
-  background: #ffb84d;
+  background: #74e08c;
 }
 .invite-btn.invited {
-  background: var(--line-lime);
-  color: var(--ww-accent-ink);
+  background: var(--ww-surface-2);
+  color: var(--ww-muted);
+  border: 1px solid var(--ww-line-strong);
 }
 .invite-btn:disabled {
   opacity: 0.6;
