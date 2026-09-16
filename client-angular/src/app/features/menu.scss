@@ -110,15 +110,22 @@
   flex-shrink: 0;
 }
 
+/* Amigos vivió aquí antes, como segunda columna — ahora es el widget
+   flotante de toda la app (ver shared/components/friends-dock), así que
+   Modos de Juego reclama todo el ancho de la tarjeta: una rejilla bento
+   (dos modos destacados arriba, tres de apoyo abajo) en vez de una lista
+   de filas estrecha y centrada. */
 .main-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
   margin-top: 20px;
 }
 
-.game-modes-section h2,
-.friends-header h2 {
+.game-modes-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-modes-section h2 {
   font-family: var(--ww-serif);
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -126,133 +133,165 @@
   font-size: 1.5rem;
 }
 
-.game-modes {
+.mode-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
 }
 
-.mode-btn {
+.mode-card {
   --card-accent: var(--line-cobalt);
-  --card-accent-soft: rgba(74, 144, 226, 0.1);
-  --card-accent-border: rgba(74, 144, 226, 0.24);
-  background: var(--ww-surface-2);
+  --card-accent-soft: rgba(74, 144, 226, 0.12);
+  --card-accent-border: rgba(74, 144, 226, 0.3);
+  position: relative;
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 168px;
+  padding: 22px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--card-accent-soft), transparent 60%),
+    var(--ww-bg-2);
   border: 1px solid var(--ww-line);
   border-radius: var(--ww-radius);
   color: var(--ww-text);
   text-align: left;
-  position: relative;
-  overflow: hidden;
-  padding: 22px 20px;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  transition: border-color 180ms ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--card-accent);
-  }
   &:hover {
     border-color: var(--card-accent-border);
-    background: var(--ww-surface);
-    box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.8);
+  }
+  &:hover .mode-card-arrow {
+    color: var(--card-accent);
+    transform: translate(2px, -2px);
   }
   &:active {
     transform: scale(0.98);
   }
 
+  &--featured {
+    grid-column: span 3;
+    min-height: 208px;
+    padding: 28px;
+  }
+
   &--scarlet {
     --card-accent: var(--line-scarlet);
-    --card-accent-soft: rgba(204, 63, 82, 0.1);
-    --card-accent-border: rgba(204, 63, 82, 0.24);
+    --card-accent-soft: rgba(204, 63, 82, 0.16);
+    --card-accent-border: rgba(204, 63, 82, 0.36);
   }
   &--amber {
     --card-accent: var(--line-amber);
-    --card-accent-soft: rgba(245, 166, 35, 0.1);
-    --card-accent-border: rgba(245, 166, 35, 0.24);
+    --card-accent-soft: rgba(245, 166, 35, 0.16);
+    --card-accent-border: rgba(245, 166, 35, 0.36);
   }
   &--lime {
     --card-accent: var(--line-lime);
-    --card-accent-soft: rgba(95, 217, 122, 0.1);
-    --card-accent-border: rgba(95, 217, 122, 0.24);
+    --card-accent-soft: rgba(95, 217, 122, 0.16);
+    --card-accent-border: rgba(95, 217, 122, 0.36);
+  }
+  &--violet {
+    --card-accent: var(--line-violet);
+    --card-accent-soft: rgba(145, 99, 209, 0.16);
+    --card-accent-border: rgba(145, 99, 209, 0.36);
   }
   &--completed {
     --card-accent: var(--line-lime);
-    --card-accent-soft: rgba(95, 217, 122, 0.1);
-    --card-accent-border: rgba(95, 217, 122, 0.24);
+    --card-accent-soft: rgba(95, 217, 122, 0.16);
+    --card-accent-border: rgba(95, 217, 122, 0.36);
   }
+}
 
-  h3 {
-    font-family: var(--ww-serif);
-    font-size: 1.2rem;
-    margin-bottom: 4px;
-    pointer-events: none;
-  }
-  p {
-    font-size: 0.88rem;
-    color: var(--ww-muted);
-    pointer-events: none;
-  }
-}
-.mode-daily-countdown {
-  font-family: var(--ww-mono);
-  font-size: 0.76rem !important;
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-.mode-icon {
+.mode-card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin-bottom: 14px;
+  flex-shrink: 0;
   border-radius: 11px;
   color: var(--card-accent);
   background: var(--card-accent-soft);
   border: 1px solid var(--card-accent-border);
 
   svg {
-    width: 21px;
-    height: 21px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .mode-card--featured & {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+
+    svg {
+      width: 26px;
+      height: 26px;
+    }
   }
 }
 
-.friends-section {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--ww-bg-2);
-  border: 1px solid var(--ww-line);
-  border-radius: var(--ww-radius);
-  padding: 20px;
-}
-.friends-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.friends-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.no-friends {
-  text-align: center;
-  color: var(--ww-muted);
+.mode-card-body {
+  min-width: 0;
 
+  h3 {
+    font-family: var(--ww-serif);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    pointer-events: none;
+  }
   p {
-    margin: 4px 0;
+    font-size: 0.84rem;
+    color: var(--ww-muted);
+    line-height: 1.4;
+    pointer-events: none;
+  }
+
+  .mode-card--featured & h3 {
+    font-size: 1.4rem;
   }
 }
 
-@media (max-width: 900px) {
-  .main-content {
+.mode-card-arrow {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: inline-flex;
+  color: var(--ww-faint);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), color 160ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mode-card--featured & {
+    top: 24px;
+    right: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mode-grid {
     grid-template-columns: 1fr;
   }
+  .mode-card,
+  .mode-card--featured {
+    grid-column: span 1;
+    min-height: 0;
+    padding: 20px;
+  }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card,
+  .mode-card-arrow {
+    transition: none;
+  }
+}
+

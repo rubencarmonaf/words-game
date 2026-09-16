@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Auth } from '../core/services/auth';
 import { Profile } from '../core/services/profile';
 import { DailyChallenge } from '../core/services/daily-challenge';
+import { Socket } from '../core/services/socket';
 import { eloTier } from '../core/models/elo-tier';
 import { WwAvatar } from '../shared/components/ww-avatar';
 
@@ -16,6 +17,7 @@ export class Menu implements OnInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly profileService = inject(Profile);
   private readonly dailyChallenge = inject(DailyChallenge);
+  private readonly socket = inject(Socket);
   private readonly router = inject(Router);
 
   protected readonly user = this.auth.currentUser;
@@ -48,6 +50,10 @@ export class Menu implements OnInit, OnDestroy {
   }
 
   protected logout(): void {
+    // Auth.logout() solo borra el token; sin esto el socket seguía vivo en
+    // el servidor y los amigos te veían "En línea" indefinidamente tras
+    // cerrar sesión, porque nadie le avisaba al socket de que la sesión terminó.
+    this.socket.disconnect();
     this.auth.logout();
     this.router.navigateByUrl('/auth');
   }
