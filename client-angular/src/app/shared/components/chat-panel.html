@@ -1,0 +1,47 @@
+@if (activeFriend(); as friend) {
+  <div class="chat-panel">
+    <div class="chat-panel-header">
+      <ww-avatar [options]="friend.avatar" size="sm" />
+      <div class="chat-panel-header-text">
+        <span class="chat-panel-title">{{ friend.username }}</span>
+        <span class="chat-panel-subtitle" [class.online]="friend.online">
+          {{ friend.online ? 'En línea' : 'Desconectado' }}
+        </span>
+      </div>
+      <button type="button" class="chat-panel-close" (click)="close()" aria-label="Cerrar chat">✕</button>
+    </div>
+
+    <div class="chat-panel-messages" #chatScroll>
+      @if (messages().length === 0) {
+        <p class="chat-panel-empty">Aún no hay mensajes. ¡Saluda!</p>
+      }
+      @for (message of messages(); track message.id) {
+        @if (message.from === myUserId) {
+          <div class="chat-row mine">
+            <div class="chat-bubble mine">{{ message.text }}</div>
+          </div>
+        } @else {
+          <div class="chat-row">
+            <ww-avatar [options]="friend.avatar" size="sm" />
+            <div class="chat-bubble">{{ message.text }}</div>
+          </div>
+        }
+      }
+    </div>
+
+    <div class="chat-panel-input">
+      <input
+        type="text"
+        [formControl]="chatControl"
+        placeholder="Escribe un mensaje..."
+        autocomplete="off"
+        (keydown.enter)="sendMessage()"
+      />
+      <button type="button" class="chat-panel-send" [disabled]="!chatControl.value.trim()" (click)="sendMessage()" aria-label="Enviar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+      </button>
+    </div>
+  </div>
+}

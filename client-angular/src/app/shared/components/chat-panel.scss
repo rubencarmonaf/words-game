@@ -1,0 +1,189 @@
+:host {
+  display: contents;
+}
+
+.chat-panel {
+  position: fixed;
+  /* 20px (borde del dock) + 320px (ancho del panel del dock expandido) +
+     12px de separación, para que quede pegado a su izquierda. */
+  right: 352px;
+  bottom: 20px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-height: 480px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: var(--ww-radius);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  font-family: var(--ww-sans);
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--ww-surface);
+  border-bottom: 1px solid var(--ww-line);
+  flex-shrink: 0;
+}
+.chat-panel-header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chat-panel-title {
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-panel-subtitle {
+  font-size: 0.76rem;
+  color: var(--ww-muted);
+
+  &.online {
+    color: var(--line-lime);
+  }
+}
+.chat-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--ww-muted);
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+
+  &:hover {
+    background: var(--ww-bg-2);
+    color: var(--ww-text);
+  }
+}
+
+.chat-panel-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+.chat-panel-empty {
+  margin: auto 0;
+  text-align: center;
+  color: var(--ww-muted);
+  font-size: 0.86rem;
+}
+
+.chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+
+  &.mine {
+    justify-content: flex-end;
+  }
+}
+.chat-bubble {
+  max-width: 76%;
+  padding: 9px 13px;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line);
+  border-radius: 16px 16px 16px 4px;
+  color: var(--ww-text);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  word-break: break-word;
+
+  &.mine {
+    background: var(--ww-accent);
+    color: var(--ww-accent-ink);
+    border-color: transparent;
+    border-radius: 16px 16px 4px 16px;
+  }
+}
+
+.chat-panel-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ww-line);
+  background: var(--ww-surface);
+  flex-shrink: 0;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 16px;
+    background: var(--ww-bg-2);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: 999px;
+    color: var(--ww-text);
+    font-size: 0.86rem;
+  }
+  input::placeholder {
+    color: var(--ww-faint);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--ww-accent);
+  }
+}
+.chat-panel-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+  &:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@media (max-width: 820px) {
+  /* No cabe a la izquierda del dock en pantallas estrechas — se apila
+     encima de él en vez de salirse por el borde de la ventana. */
+  .chat-panel {
+    right: 20px;
+    bottom: 92px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-panel {
+    right: 12px;
+    left: 12px;
+    width: auto;
+    bottom: 84px;
+  }
+}
