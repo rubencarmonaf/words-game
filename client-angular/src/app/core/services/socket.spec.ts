@@ -62,9 +62,10 @@ describe('Socket', () => {
     expect(fakeSocket.emit).not.toHaveBeenCalledWith('authenticate', expect.anything());
   });
 
-  it('emit() forwards to the underlying socket', () => {
+  it('emit() forwards immediately once the socket is connected', () => {
     const service = TestBed.inject(Socket);
     service.connect();
+    fakeSocket.connected = true;
     service.emit('submitWord', { gameId: 'g1', word: 'hola' });
 
     expect(fakeSocket.emit).toHaveBeenCalledWith('submitWord', { gameId: 'g1', word: 'hola' });
@@ -73,6 +74,23 @@ describe('Socket', () => {
   it('emit() before connect() is a no-op rather than a throw', () => {
     const service = TestBed.inject(Socket);
     expect(() => service.emit('submitWord', {})).not.toThrow();
+  });
+
+  it('emit() called while still connecting is queued and flushed after authenticate, not via the socket.io internal buffer', () => {
+    localStorage.setItem('authToken', 'tok123');
+    const service = TestBed.inject(Socket);
+    service.connect();
+
+    // Not connected yet — must not reach the fake socket immediately, or it
+    // could beat 'authenticate' to the server (see the bug this queue fixes).
+    service.emit('lobby:create');
+    expect(fakeSocket.emit).not.toHaveBeenCalledWith('lobby:create', undefined);
+
+    fakeSocket.connected = true;
+    connectHandler()?.();
+
+    const calls = fakeSocket.emit.mock.calls.map(([event]) => event);
+    expect(calls).toEqual(['authenticate', 'lobby:create']);
   });
 
   it('on() registered before connect() is wired onto the socket once connected', () => {
