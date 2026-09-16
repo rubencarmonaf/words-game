@@ -63,6 +63,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/lobby').then((m) => m.Lobby),
   },
   {
+    path: 'lobby/:lobbyId',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/lobby').then((m) => m.Lobby),
+  },
+  {
     path: 'daily-challenge',
     canActivate: [authGuard],
     loadComponent: () =>

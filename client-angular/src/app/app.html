@@ -1,3 +1,7 @@
 <router-outlet />
 <ww-toast-host />
 <ww-cookie-banner />
+@if (auth.isAuthenticated()) {
+  <ww-chat-panel />
+  <ww-friends-dock />
+}
