@@ -42,7 +42,13 @@ export class Register {
     this.auth.register(username, email, password).subscribe((result) => {
       this.submitting.set(false);
 
-      if (result.success) {
+      if (result.success && result.data?.verificationRequired) {
+        // Sin sesión hasta confirmar el email: se pasa a la pantalla de "revisa tu correo".
+        if (result.data.emailSent === false) {
+          this.toast.show('No hemos podido enviar el email. Pulsa "Reenviar" en la pantalla siguiente.', 'error');
+        }
+        this.router.navigateByUrl('/auth/check-email');
+      } else if (result.success) {
         this.router.navigateByUrl('/menu');
       } else if (result.message === 'Usuario ya existe') {
         this.form.controls.username.setErrors({

@@ -1,0 +1,12 @@
+<ww-auth-card [showTabs]="false">
+  <div class="verify-email" aria-live="polite">
+    @if (error(); as message) {
+      <h2>No se pudo confirmar</h2>
+      <p class="verify-email-text">{{ message }}</p>
+      <a routerLink="/auth" class="btn btn-primary">Iniciar sesión</a>
+    } @else {
+      <h2>Confirmando tu email…</h2>
+      <p class="verify-email-text">Un momento, estamos activando tu cuenta.</p>
+    }
+  </div>
+</ww-auth-card>
