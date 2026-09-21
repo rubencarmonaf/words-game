@@ -7,14 +7,18 @@
     <div class="ww-profile-header">
       <ww-avatar [options]="displayedAvatar()" size="lg" />
       <div class="ww-profile-id">
-        <h1>{{ u.username }}</h1>
-        <ww-tier-badge [elo]="u.elo" />
+        <div class="ww-profile-top">
+          <div class="ww-profile-name">
+            <h1>{{ u.username }}</h1>
+            <ww-tier-badge [elo]="u.elo" />
+          </div>
+          <ww-rank-emblem class="ww-profile-emblem" [elo]="u.elo" />
+        </div>
         <div class="ww-tier-progress">
           <div class="ww-tier-progress-bar" [style.--fill]="tierProgress().fill"></div>
         </div>
         <p class="ww-tier-progress-label">{{ tierProgress().label }}</p>
       </div>
-      <ww-rank-emblem class="ww-profile-emblem" [elo]="u.elo" />
       @if (!editing() && !viewingFriend()) {
         <button type="button" class="btn btn-secondary" (click)="startEdit()">Editar perfil</button>
       }

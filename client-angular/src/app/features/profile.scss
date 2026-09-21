@@ -47,8 +47,19 @@ h1 {
   flex: 1;
   min-width: 200px;
 }
+/* Nombre y rango con la insignia pegada a su derecha (no en el extremo de la fila). El nombre
+   solo se parte si de verdad no cabe; la insignia nunca se encoge. La barra de progreso va debajo. */
+.ww-profile-top {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.ww-profile-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .ww-profile-emblem {
-  --ww-emblem-size: 104px;
+  --ww-emblem-size: 96px;
   flex-shrink: 0;
   filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5));
 }
@@ -59,6 +70,7 @@ ww-tier-badge {
 }
 
 .ww-tier-progress {
+  margin-top: 6px;
   width: 100%;
   max-width: 280px;
   height: 5px;
