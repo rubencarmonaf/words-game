@@ -127,11 +127,20 @@ elige este repositorio y rellena lo que te pida:
 | `MONGODB_URI` | Cadena de conexión de MongoDB Atlas |
 | `CLIENT_URL` | La URL pública del servicio, p. ej. `https://wordwars.onrender.com` (se usa en el enlace del email de recuperar contraseña) |
 | `JWT_SECRET` | Se genera sola |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Opcionales; sin ellas el email de recuperar contraseña no se envía |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Envío de emails con [Resend](https://resend.com) (ver "Verificación de email"). Sin la clave no se envía nada y, en producción, no se exige verificar el email |
 
 En Atlas hay que permitir el acceso de red desde Render (*Network Access*). En el
 plan gratuito el servicio se duerme tras un rato sin tráfico y pierde el estado
 en memoria; para uso real conviene un plan de pago.
+
+### Verificación de email
+Al registrarse se envía un enlace de un solo uso (24 h) a la dirección indicada y la cuenta no puede iniciar sesión hasta abrirlo. Las cuentas sin verificar se borran solas a las 48 h, y no reservan el email: su dueño real puede registrarse encima.
+
+- **Direcciones repetidas:** el email se normaliza (minúsculas, sin `+alias` y, en Gmail, sin puntos), así que `a.b+1@gmail.com` y `ab@gmail.com` son la misma cuenta.
+- **Filtros en el registro:** formato válido, dominios de correo desechable (`disposable-email-domains`) y dominios sin registros DNS de correo.
+- **Resend:** el plan gratuito de Render bloquea el SMTP, por eso se usa la API HTTP. Para escribir a cualquier usuario hay que verificar un dominio propio en Resend (registros DNS) y poner `EMAIL_FROM=WordWars <no-reply@tu-dominio>`; con el remitente de pruebas `onboarding@resend.dev` solo se entrega a la dirección de tu cuenta de Resend.
+- **Sin `RESEND_API_KEY`:** en desarrollo el enlace se imprime en la consola del servidor; en producción no se exige verificar, para no dejar la web sin registro.
+- Las cuentas creadas antes de esta función se marcan como verificadas al arrancar el servidor.
 
 ### SEO
 Solo se posicionan las páginas públicas (la landing y las legales); el juego está tras el login.
