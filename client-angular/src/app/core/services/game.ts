@@ -197,6 +197,17 @@ export class Game {
       this.startTimer(data.remainingSeconds);
     });
 
+    // El servidor cancela el emparejamiento (el rival se desconectó, o salió durante la pantalla VS).
+    // La pantalla vuelve a "buscando"; si el servidor ya nos devolvió a la cola, volver a pedirlo
+    // no cambia nada, y si nuestra propia conexión se cayó, es lo que nos vuelve a meter.
+    this.socket.on<void>('matchCancelled').subscribe(() => {
+      this.cancelResync();
+      if (this.statusSignal() !== 'matchmaking') return;
+      this.matchInfoSignal.set(null);
+      this.toast.show('Tu rival se desconectó. Buscando otra partida…', 'info');
+      this.http.post('/api/matchmaking/join', {}).subscribe({ error: () => undefined });
+    });
+
     this.socket.on<WordSubmittedPayload>('wordSubmitted').subscribe((data) => {
       const normalized = data.word.toLowerCase();
       this.playersSignal.update((players) =>

@@ -361,6 +361,32 @@ describe('Game', () => {
       });
     });
 
+    it('matchCancelled goes back to searching: clears the rival and asks to be queued again', () => {
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+      const me = { username: 'Yo', avatar: DEFAULT_AVATAR, elo: 10 };
+      const rival = { username: 'Rival', avatar: DEFAULT_AVATAR, elo: 20 };
+      socket.push('matchFound', { gameId: 'g1', opponent: 'Rival', me, rival, eloIfWin: 5, eloIfLose: -5 });
+      expect(service.matchInfo()).not.toBeNull();
+
+      socket.push('matchCancelled', undefined);
+
+      expect(service.matchInfo()).toBeNull();
+      expect(service.status()).toBe('matchmaking');
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+    });
+
+    it('matchCancelled is ignored when we are not searching any more', () => {
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+      service.cancelMatchmaking();
+      httpMock.expectOne('/api/matchmaking/leave').flush({ success: true });
+
+      socket.push('matchCancelled', undefined);
+
+      httpMock.expectNone('/api/matchmaking/join');
+    });
+
     it('a resumed gameStart restores the words, the scores and the remaining time', () => {
       useServiceAuthenticatedAs('u1');
       service.startMatchmaking().subscribe();
