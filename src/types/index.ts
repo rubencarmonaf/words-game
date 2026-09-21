@@ -92,6 +92,10 @@ export interface IMessage extends Document {
   from: string;
   to: string;
   text: string;
+  /** 'lobby-invite' es una invitación a un lobby "Con amigos" que queda en el
+   * hilo (con su lobbyId) para poder aceptarla más tarde. */
+  kind: 'text' | 'lobby-invite';
+  lobbyId?: string;
   read: boolean;
   createdAt: Date;
 }
@@ -101,6 +105,7 @@ export interface MatchmakingPlayer {
   userId: string;
   username: string;
   elo: number;
+  avatar: AvatarOptions;
   socketId?: string;
   queuedAt: number;
 }

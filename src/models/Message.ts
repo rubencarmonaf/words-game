@@ -17,6 +17,14 @@ const messageSchema = new Schema<IMessage>({
     required: true,
     maxlength: 1000
   },
+  kind: {
+    type: String,
+    enum: ['text', 'lobby-invite'],
+    default: 'text'
+  },
+  lobbyId: {
+    type: String
+  },
   read: {
     type: Boolean,
     default: false
