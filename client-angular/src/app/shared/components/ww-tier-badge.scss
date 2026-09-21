@@ -1,0 +1,63 @@
+:host {
+  display: inline-flex;
+}
+
+.ww-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--ww-tier-badge-bg, var(--ww-surface-2));
+  border: 1px solid var(--ww-line-strong);
+
+  &--cobalt {
+    color: var(--line-cobalt);
+    .ww-tier-dot {
+      background: var(--line-cobalt);
+    }
+  }
+  &--scarlet {
+    color: var(--line-scarlet);
+    .ww-tier-dot {
+      background: var(--line-scarlet);
+    }
+  }
+  &--amber {
+    color: var(--line-amber);
+    .ww-tier-dot {
+      background: var(--line-amber);
+    }
+  }
+  &--lime {
+    color: var(--line-lime);
+    .ww-tier-dot {
+      background: var(--line-lime);
+    }
+  }
+  &--violet {
+    // El violeta puro da ~3,4:1 como texto pequeño sobre este fondo; aclarado
+    // llega a ~6:1. El punto conserva el color de línea tal cual.
+    color: color-mix(in srgb, var(--line-violet) 65%, white);
+    .ww-tier-dot {
+      background: var(--line-violet);
+    }
+  }
+  &--porcelain {
+    color: var(--ww-text);
+    .ww-tier-dot {
+      background: var(--ww-text);
+    }
+  }
+}
+
+.ww-tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

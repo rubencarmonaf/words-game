@@ -47,6 +47,11 @@ describe('Profile', () => {
     expect(component['tier']().name).toBe('Experto');
   });
 
+  it('shows the rank emblem for the current ELO', () => {
+    const img = fixture.nativeElement.querySelector('.ww-profile-emblem img') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('/assets/ranks/experto.png');
+  });
+
   it('startEdit() seeds the form with the current username and avatar', () => {
     component['startEdit']();
     expect(component['form'].controls.username.value).toBe('kaven');

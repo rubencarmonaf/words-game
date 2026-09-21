@@ -47,51 +47,15 @@ h1 {
   flex: 1;
   min-width: 200px;
 }
-
-.ww-tier-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--ww-bg-2);
-  border: 1px solid var(--ww-line-strong);
-  margin-bottom: 12px;
-
-  &--cobalt {
-    color: var(--line-cobalt);
-    .ww-tier-dot {
-      background: var(--line-cobalt);
-    }
-  }
-  &--scarlet {
-    color: var(--line-scarlet);
-    .ww-tier-dot {
-      background: var(--line-scarlet);
-    }
-  }
-  &--amber {
-    color: var(--line-amber);
-    .ww-tier-dot {
-      background: var(--line-amber);
-    }
-  }
-  &--lime {
-    color: var(--line-lime);
-    .ww-tier-dot {
-      background: var(--line-lime);
-    }
-  }
-}
-.ww-tier-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.ww-profile-emblem {
+  --ww-emblem-size: 104px;
   flex-shrink: 0;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5));
+}
+
+ww-tier-badge {
+  --ww-tier-badge-bg: var(--ww-bg-2);
+  margin-bottom: 12px;
 }
 
 .ww-tier-progress {
