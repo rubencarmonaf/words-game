@@ -6,6 +6,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 
@@ -45,16 +47,78 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 
 const app = express();
 const server = http.createServer(app);
+
+// Detrás del proxy de Render la petición llega por HTTP desde una IP interna: sin
+// esto, req.ip sería siempre la del proxy (y el límite de intentos por IP pararía a
+// todo el mundo a la vez) y req.protocol sería siempre "http".
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// Orígenes que pueden llamar a la API desde un navegador. En producción la web y la
+// API comparten origen (el navegador no necesita CORS), así que solo se admite el
+// dominio público; en desarrollo, el servidor de Angular. Las peticiones sin cabecera
+// Origin (curl, scripts, otros servidores) no pasan por CORS y no se ven afectadas.
+const allowedOrigins: string[] = [];
+try {
+  if (process.env.CLIENT_URL) allowedOrigins.push(new URL(process.env.CLIENT_URL).origin);
+} catch {
+  console.warn('⚠️  CLIENT_URL no es una URL válida; se ignora para CORS');
+}
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:4200', 'http://127.0.0.1:4200', 'http://localhost:3000', 'http://localhost:5173');
+}
+const corsOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void): void => {
+  callback(null, !origin || allowedOrigins.includes(origin));
+};
+
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "*",
+    origin: corsOrigin,
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
-app.use(cors());
+// Cabeceras de seguridad. La CSP por defecto es la más estricta posible (aplica a
+// las respuestas de la API); las páginas de la web la sustituyen por la suya con los
+// hashes de sus scripts en línea (ver sendPage). Las imágenes se sirven a cualquier
+// origen: son públicas y las usan las vistas previas de enlaces.
+app.use(
+  helmet({
+    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
+
+// Límites de intentos en los endpoints de cuenta, contra fuerza bruta y abuso. Se
+// guardan en memoria: valen porque solo hay una instancia, y se reinician con ella.
+const limitedResponse = (message: string) => (_req: express.Request, res: express.Response): void => {
+  res.status(429).json({ success: false, message });
+};
+const makeLimiter = (windowMs: number, limit: number, message: string, extra: { skipSuccessfulRequests?: boolean; key?: (req: express.Request) => string } = {}) =>
+  rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skipSuccessfulRequests: extra.skipSuccessfulRequests ?? false,
+    ...(extra.key ? { keyGenerator: extra.key, validate: { keyGeneratorIpFallback: false } } : {}),
+    handler: limitedResponse(message)
+  });
+const TOO_MANY = 'Demasiados intentos. Inténtalo de nuevo en unos minutos.';
+// Login: por IP (varios intentos desde un mismo sitio) y por cuenta (varias IPs contra
+// un mismo email). Los inicios de sesión correctos no cuentan.
+const loginLimiterByIp = makeLimiter(15 * 60 * 1000, 10, TOO_MANY, { skipSuccessfulRequests: true });
+const loginLimiterByEmail = makeLimiter(15 * 60 * 1000, 10, TOO_MANY, {
+  skipSuccessfulRequests: true,
+  key: (req) => String(req.body?.email ?? '').toLowerCase().trim() || 'sin-email'
+});
+const registerLimiter = makeLimiter(60 * 60 * 1000, 10, 'Demasiados registros desde esta conexión. Inténtalo más tarde.');
+const forgotPasswordLimiter = makeLimiter(60 * 60 * 1000, 5, TOO_MANY);
+const resetPasswordLimiter = makeLimiter(60 * 60 * 1000, 10, TOO_MANY);
 
 // Database connection
 const connectDB = async (): Promise<void> => {
@@ -100,7 +164,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Auth routes
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
@@ -153,7 +217,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) => {
   try {
     const { email, password } = req.body;
     
@@ -193,7 +257,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Solicitar reseteo de contraseña: genera token, lo guarda hasheado y envía el email
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -241,7 +305,7 @@ app.post('/api/forgot-password', async (req, res) => {
 });
 
 // Confirmar reseteo: valida el token y establece la nueva contraseña
-app.post('/api/reset-password', async (req, res) => {
+app.post('/api/reset-password', resetPasswordLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
 
@@ -1399,10 +1463,6 @@ const CLIENT_ROUTES: RegExp[] = [
 const ROBOTS_DISALLOW = ['/api/', '/auth', '/menu', '/play/', '/lobby', '/daily-challenge', '/profile', '/gracias'];
 
 if (CLIENT_BUILT) {
-  // Detrás del proxy de Render la petición llega por HTTP: sin esto req.protocol
-  // sería siempre "http" y las URLs absolutas saldrían mal.
-  app.set('trust proxy', 1);
-
   const CSR_SHELL = fs.existsSync(path.join(CLIENT_DIST, 'index.csr.html')) ? 'index.csr.html' : 'index.html';
 
   // Dominio público, para las URLs absolutas de canonical / Open Graph / sitemap.
@@ -1412,17 +1472,53 @@ if (CLIENT_BUILT) {
 
   // El HTML compilado lleva __SITE_URL__ donde va el dominio; se lee una vez y se
   // sustituye en cada respuesta.
-  const pageCache = new Map<string, string>();
+  // Hashes SHA-256 de los scripts y manejadores en línea de una página (el
+  // bootstrap de los eventos y el `onload` con que se carga la hoja de estilos):
+  // la CSP los admite por su contenido exacto, sin abrir la puerta a `'unsafe-inline'`.
+  const hashOf = (text: string): string => `'sha256-${crypto.createHash('sha256').update(text).digest('base64')}'`;
+  const inlineHashes = (html: string): { scripts: string[]; handlers: string[] } => {
+    const scripts = new Set<string>();
+    const handlers = new Set<string>();
+    // Los bloques application/json y ld+json son datos: la CSP no los ejecuta ni los restringe.
+    const scriptRe = /<script(?![^>]*\bsrc=)(?![^>]*type="application\/(?:ld\+)?json")[^>]*>([\s\S]*?)<\/script>/gi;
+    for (let m = scriptRe.exec(html); m; m = scriptRe.exec(html)) scripts.add(hashOf(m[1]));
+    const handlerRe = /\son[a-z]+="([^"]*)"/gi;
+    for (let m = handlerRe.exec(html); m; m = handlerRe.exec(html)) handlers.add(hashOf(m[1]));
+    return { scripts: [...scripts], handlers: [...handlers] };
+  };
+
+  interface CachedPage { html: string; scriptHashes: string[]; handlerHashes: string[] }
+  const pageCache = new Map<string, CachedPage>();
   const sendPage = (req: express.Request, res: express.Response, file: string, status = 200): void => {
-    let html = pageCache.get(file);
-    if (html === undefined) {
-      html = fs.readFileSync(path.join(CLIENT_DIST, file), 'utf8');
-      pageCache.set(file, html);
+    let page = pageCache.get(file);
+    if (!page) {
+      const html = fs.readFileSync(path.join(CLIENT_DIST, file), 'utf8');
+      const hashes = inlineHashes(html);
+      page = { html, scriptHashes: hashes.scripts, handlerHashes: hashes.handlers };
+      pageCache.set(file, page);
     }
+    const host = req.get('host');
+    const csp = [
+      "default-src 'self'",
+      // Analítica opcional (solo se carga con consentimiento, ver cookie-consent.ts).
+      `script-src 'self' ${page.scriptHashes.join(' ')} https://www.googletagmanager.com`,
+      `script-src-attr ${page.handlerHashes.length ? "'unsafe-hashes' " + page.handlerHashes.join(' ') : "'none'"}`,
+      // Angular inserta los estilos de cada componente como <style> en línea.
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com",
+      // El socket va por el mismo host; se nombra ws/wss explícitamente porque no todos
+      // los navegadores lo cubren con 'self'.
+      `connect-src 'self' ws://${host} wss://${host} https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com`,
+      "font-src 'self' data:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'"
+    ].join('; ');
     res
       .status(status)
-      .set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
-      .send(html.split('__SITE_URL__').join(siteUrl(req)));
+      .set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Security-Policy': csp })
+      .send(page.html.split('__SITE_URL__').join(siteUrl(req)));
   };
 
   const prerendered = new Map<string, string>();
