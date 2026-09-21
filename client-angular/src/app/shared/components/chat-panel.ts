@@ -53,6 +53,13 @@ export class ChatPanel {
     this.chatControl.setValue('');
   }
 
+  /** Abre el perfil (stats) del amigo. En pantallas estrechas el chat ocupa toda la pantalla
+   * y taparía el perfil, así que ahí se cierra; en pantallas anchas queda abierto al lado. */
+  protected viewProfile(friendId: string): void {
+    if (window.matchMedia?.('(max-width: 820px)').matches) this.close();
+    this.router.navigateByUrl(`/profile/${friendId}`);
+  }
+
   /** Acepta una invitación del chat: la pantalla del lobby se une a él
    * por el id de la ruta (igual que el botón del aviso emergente). */
   protected joinLobby(lobbyId: string): void {

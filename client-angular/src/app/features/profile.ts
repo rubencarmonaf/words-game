@@ -1,7 +1,8 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import type { AvatarOptions } from '@shared-types';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import type { AvatarOptions, IUserPublic } from '@shared-types';
 import { DEFAULT_AVATAR } from '@shared-types';
 import { Auth } from '../core/services/auth';
 import { Profile as ProfileService } from '../core/services/profile';
@@ -23,8 +24,20 @@ export class Profile implements OnInit {
   private readonly profileService = inject(ProfileService);
   private readonly toast = inject(Toast);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly user = this.auth.currentUser;
+  /** Id del amigo cuyo perfil se mira (ruta /profile/:userId); null en el perfil propio. */
+  private readonly friendId = signal<string | null>(null);
+  private readonly friendProfile = signal<IUserPublic | null>(null);
+  /** Perfil de otra persona: solo lectura, sin editar. */
+  protected readonly viewingFriend = computed(() => {
+    const id = this.friendId();
+    return id !== null && id !== this.auth.getUserId();
+  });
+
+  protected readonly user = computed(() => (this.viewingFriend() ? this.friendProfile() : this.auth.currentUser()));
   protected readonly editing = signal(false);
   protected readonly saving = signal(false);
   protected readonly draftAvatar = signal<AvatarOptions>({ ...DEFAULT_AVATAR });
@@ -49,7 +62,30 @@ export class Profile implements OnInit {
   );
 
   ngOnInit(): void {
-    this.profileService.refresh().subscribe();
+    // Por la ruta y no por su instantánea: ir del perfil de un amigo al de otro reutiliza
+    // este mismo componente, y solo cambia el parámetro.
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => this.load(params.get('userId')));
+  }
+
+  private load(userId: string | null): void {
+    this.friendId.set(userId);
+    this.friendProfile.set(null);
+    this.editing.set(false);
+
+    if (!this.viewingFriend()) {
+      this.profileService.refresh().subscribe();
+      return;
+    }
+
+    this.profileService.getUserProfile(userId!).subscribe((result) => {
+      if (this.friendId() !== userId) return; // ya se navegó a otro perfil
+      if (result.success && result.data) {
+        this.friendProfile.set(result.data);
+      } else {
+        this.toast.show(result.message ?? 'No se pudo cargar el perfil', 'error');
+        this.router.navigateByUrl('/menu');
+      }
+    });
   }
 
   protected startEdit(): void {

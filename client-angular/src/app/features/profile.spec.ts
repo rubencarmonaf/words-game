@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { DEFAULT_AVATAR } from '@shared-types';
@@ -56,5 +58,55 @@ describe('Profile', () => {
     component['startEdit']();
     expect(component['form'].controls.username.value).toBe('kaven');
     expect(component['editing']()).toBe(true);
+  });
+});
+
+describe('Profile of a friend (/profile/:userId)', () => {
+  let httpMock: HttpTestingController;
+
+  async function setup(userId: string): Promise<ComponentFixture<Profile>> {
+    await TestBed.configureTestingModule({
+      imports: [Profile],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ userId })) } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(Profile);
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('loads the friend profile from their own endpoint and shows their stats, read-only', async () => {
+    const fixture = await setup('f1');
+    httpMock.expectOne('/api/users/f1/profile').flush({
+      success: true,
+      data: { id: 'f1', username: 'Ana', elo: 1650, gamesPlayed: 10, gamesWon: 7, winRate: 70, avatar: DEFAULT_AVATAR },
+    });
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('h1')?.textContent).toContain('Ana');
+    expect(el.textContent).toContain('70.0%');
+    expect(el.textContent).not.toContain('Editar perfil');
+    httpMock.expectNone('/api/profile');
+  });
+
+  it('goes back to the menu with an error notice when the profile cannot be seen', async () => {
+    const fixture = await setup('stranger');
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+    httpMock
+      .expectOne('/api/users/stranger/profile')
+      .flush({ success: false, message: 'Solo puedes ver el perfil de tus amigos' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith('/menu');
   });
 });

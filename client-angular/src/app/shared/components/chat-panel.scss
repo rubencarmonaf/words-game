@@ -30,6 +30,27 @@
   border-bottom: 1px solid var(--ww-line);
   flex-shrink: 0;
 }
+/* Avatar + nombre: un solo botón que lleva al perfil del amigo. */
+.chat-panel-profile {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .chat-panel-title-chevron {
+    transform: translateX(2px);
+    color: var(--ww-text);
+  }
+}
 .chat-panel-header-text {
   flex: 1;
   display: flex;
@@ -38,12 +59,22 @@
   min-width: 0;
 }
 .chat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--ww-serif);
   font-weight: 700;
   font-size: 1.05rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.chat-panel-title-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--ww-muted);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), color 0.16s ease;
 }
 .chat-panel-subtitle {
   font-size: 0.76rem;

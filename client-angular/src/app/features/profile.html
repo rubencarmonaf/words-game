@@ -15,7 +15,7 @@
         <p class="ww-tier-progress-label">{{ tierProgress().label }}</p>
       </div>
       <ww-rank-emblem class="ww-profile-emblem" [elo]="u.elo" />
-      @if (!editing()) {
+      @if (!editing() && !viewingFriend()) {
         <button type="button" class="btn btn-secondary" (click)="startEdit()">Editar perfil</button>
       }
     </div>

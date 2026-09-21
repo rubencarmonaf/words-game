@@ -22,6 +22,13 @@ export class Profile {
     );
   }
 
+  /** Perfil público de otro usuario (solo se permite el de un amigo). */
+  getUserProfile(userId: string): Observable<ApiResponse<IUserPublic>> {
+    return this.http
+      .get<ApiResponse<IUserPublic>>(`/api/users/${userId}/profile`)
+      .pipe(catchError((err: HttpErrorResponse) => of(this.toApiError(err))));
+  }
+
   update(updates: ProfileUpdate): Observable<ApiResponse<IUserPublic>> {
     return this.http.put<ApiResponse<IUserPublic>>('/api/profile', updates).pipe(
       tap((result) => {
