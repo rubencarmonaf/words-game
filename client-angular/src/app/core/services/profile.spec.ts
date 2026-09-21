@@ -29,6 +29,28 @@ describe('Profile', () => {
     expect(service).toBeTruthy();
   });
 
+  it('getUserProfile() fetches the public profile of another user', () => {
+    let result: unknown;
+    service.getUserProfile('f1').subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne('/api/users/f1/profile');
+    expect(req.request.method).toBe('GET');
+    req.flush({ success: true, data: { id: 'f1', username: 'Ana', elo: 900, gamesPlayed: 3, gamesWon: 1, winRate: 33.3, avatar: DEFAULT_AVATAR } });
+
+    expect((result as { data: { username: string } }).data.username).toBe('Ana');
+  });
+
+  it('getUserProfile() reports the server message when the profile is not allowed', () => {
+    let result: { success: boolean; message?: string } | undefined;
+    service.getUserProfile('x').subscribe((r) => (result = r));
+
+    httpMock
+      .expectOne('/api/users/x/profile')
+      .flush({ success: false, message: 'Solo puedes ver el perfil de tus amigos' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(result).toEqual({ success: false, message: 'Solo puedes ver el perfil de tus amigos' });
+  });
+
   it('refresh() fetches /api/profile and stores the user on Auth', () => {
     service.refresh().subscribe();
 

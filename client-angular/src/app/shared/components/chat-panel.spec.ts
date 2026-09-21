@@ -171,6 +171,35 @@ describe('ChatPanel', () => {
     expect(fixture.nativeElement.querySelector('.chat-invite-join')).toBeFalsy();
   });
 
+  it('the header opens the friend profile', async () => {
+    await setup();
+    messagesService.openThread('f1');
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+    fixture.detectChanges();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+    (fixture.nativeElement.querySelector('.chat-panel-profile') as HTMLButtonElement).click();
+
+    expect(navigate).toHaveBeenCalledWith('/profile/f1');
+  });
+
+  it('on a narrow screen opening the profile closes the full-screen chat so it does not cover it', async () => {
+    await setup();
+    messagesService.openThread('f1');
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+    fixture.detectChanges();
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const original = window.matchMedia;
+    window.matchMedia = (() => ({ matches: true })) as unknown as typeof window.matchMedia;
+
+    try {
+      (fixture.nativeElement.querySelector('.chat-panel-profile') as HTMLButtonElement).click();
+      expect(messagesService.activeFriendId()).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('close() clears the active thread, hiding the panel again', async () => {
     await setup();
     messagesService.openThread('f1');

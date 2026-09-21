@@ -1,13 +1,24 @@
 @if (activeFriend(); as friend) {
   <div class="chat-panel">
     <div class="chat-panel-header">
-      <ww-avatar [options]="friend.avatar" size="sm" />
-      <div class="chat-panel-header-text">
-        <span class="chat-panel-title">{{ friend.username }}</span>
-        <span class="chat-panel-subtitle" [class.online]="friend.online">
-          {{ friend.online ? 'En línea' : 'Desconectado' }}
+      <button
+        type="button"
+        class="chat-panel-profile"
+        title="Ver perfil"
+        [attr.aria-label]="'Ver el perfil de ' + friend.username"
+        (click)="viewProfile(friend.id)"
+      >
+        <ww-avatar [options]="friend.avatar" size="sm" />
+        <span class="chat-panel-header-text">
+          <span class="chat-panel-title">
+            {{ friend.username }}
+            <svg class="chat-panel-title-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg>
+          </span>
+          <span class="chat-panel-subtitle" [class.online]="friend.online">
+            {{ friend.online ? 'En línea' : 'Desconectado' }}
+          </span>
         </span>
-      </div>
+      </button>
       <button type="button" class="chat-panel-close" (click)="close()" aria-label="Cerrar chat">✕</button>
     </div>
 

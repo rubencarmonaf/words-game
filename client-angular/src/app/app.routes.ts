@@ -123,6 +123,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/profile').then((m) => m.Profile),
   },
   {
+    // Perfil (solo lectura) de un amigo, al que se llega desde su chat.
+    path: 'profile/:userId',
+    title: 'Perfil',
+    data: { seo: { noindex: true } },
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile').then((m) => m.Profile),
+  },
+  {
     path: 'legal/privacidad',
     title: 'Política de privacidad',
     data: { seo: { description: 'Cómo trata WordWars tus datos personales: qué información recoge, para qué la usa y qué derechos tienes sobre ella.' } },
