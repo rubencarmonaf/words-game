@@ -117,6 +117,49 @@ describe('Friends', () => {
     expect(service.requests()).toEqual([]);
   });
 
+  it('remove() deletes the friendship on the server and drops the friend from the list', () => {
+    service.refresh().subscribe();
+    httpMock.expectOne('/api/friends').flush({
+      success: true,
+      data: [
+        { id: 'u1', username: 'Ana', elo: 1000, online: true },
+        { id: 'u2', username: 'Beto', elo: 900, online: false },
+      ],
+    });
+
+    service.remove('u1').subscribe();
+    const req = httpMock.expectOne('/api/friends/u1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ success: true, message: 'Amigo eliminado' });
+
+    expect(service.friends().map((f) => f.id)).toEqual(['u2']);
+  });
+
+  it('remove() keeps the friend in the list when the server refuses', () => {
+    service.refresh().subscribe();
+    httpMock.expectOne('/api/friends').flush({ success: true, data: [{ id: 'u1', username: 'Ana', elo: 1000, online: true }] });
+
+    service.remove('u1').subscribe();
+    httpMock.expectOne('/api/friends/u1').flush({ success: false, message: 'No sois amigos' }, { status: 404, statusText: 'Not Found' });
+
+    expect(service.friends().map((f) => f.id)).toEqual(['u1']);
+  });
+
+  it('friend:removed makes the friend disappear live, without a refetch', () => {
+    service.refresh().subscribe();
+    httpMock.expectOne('/api/friends').flush({
+      success: true,
+      data: [
+        { id: 'u1', username: 'Ana', elo: 1000, online: true },
+        { id: 'u2', username: 'Beto', elo: 900, online: false },
+      ],
+    });
+
+    socket.push('friend:removed', { id: 'u2' });
+
+    expect(service.friends().map((f) => f.id)).toEqual(['u1']);
+  });
+
   it('friend:request adds the request live, once, and shows a notice with a "Ver" action', () => {
     const request = { id: 'r9', from: { id: 'u9', username: 'Dani' } };
 

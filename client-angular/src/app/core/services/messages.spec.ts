@@ -135,4 +135,16 @@ describe('Messages', () => {
 
     expect(service.unreadCounts()).toEqual({ friend4: 2 });
   });
+
+  it('when a friend is removed, their open chat closes and their unread messages stop counting', () => {
+    service.openThread('friend5');
+    httpMock.expectOne('/api/messages/friend5').flush({ success: true, data: [] });
+    socket.push('dm:message', { id: 'm9', from: 'friend6', to: 'me', text: 'hey', createdAt: '2026-01-01T00:00:00Z' });
+
+    socket.push('friend:removed', { id: 'friend5' });
+    expect(service.activeFriendId()).toBeNull();
+
+    socket.push('friend:removed', { id: 'friend6' });
+    expect(service.unreadCounts()['friend6']).toBeUndefined();
+  });
 });

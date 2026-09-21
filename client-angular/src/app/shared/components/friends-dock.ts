@@ -31,6 +31,8 @@ export class FriendsDock implements OnInit {
 
   protected readonly expanded = signal(false);
   protected readonly showAddFriend = signal(false);
+  /** Amigo cuya eliminación espera confirmación (dentro de su propia fila). */
+  protected readonly confirmRemoveId = signal<string | null>(null);
   protected readonly addFriendControl = new FormControl('', { nonNullable: true });
 
   protected readonly friendsList = this.friendsService.friends;
@@ -99,5 +101,25 @@ export class FriendsDock implements OnInit {
 
   protected openChat(friendId: string): void {
     this.messagesService.openThread(friendId);
+  }
+
+  protected askRemove(friendId: string): void {
+    this.confirmRemoveId.set(friendId);
+  }
+
+  protected cancelRemove(): void {
+    this.confirmRemoveId.set(null);
+  }
+
+  protected removeFriend(friendId: string): void {
+    this.friendsService.remove(friendId).subscribe((result) => {
+      this.confirmRemoveId.set(null);
+      if (result.success) {
+        this.messagesService.forgetFriend(friendId);
+        this.toast.show('Amigo eliminado', 'success');
+      } else {
+        this.toast.show(result.message ?? 'No se pudo eliminar al amigo', 'error');
+      }
+    });
   }
 }

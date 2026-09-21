@@ -49,6 +49,9 @@ export class Messages {
       );
     });
 
+    // Si te eliminan, su chat deja de existir para ti: se cierra si estaba abierto.
+    this.socket.on<{ id: string }>('friend:removed').subscribe(({ id }) => this.forgetFriend(id));
+
     // Igual que Friends: al (re)conectar se repite el conteo de no leídos,
     // así un aviso perdido durante un corte no deja el badge desactualizado.
     this.socket.on<void>('connect').subscribe(() => this.refreshUnreadCounts().subscribe());
@@ -73,6 +76,16 @@ export class Messages {
   closeThread(): void {
     this.activeFriendIdSignal.set(null);
     this.messagesSignal.set([]);
+  }
+
+  /** Deja de mostrar todo lo de un amigo eliminado: cierra su chat si estaba abierto
+   * y quita sus mensajes sin leer del contador. */
+  forgetFriend(friendId: string): void {
+    if (this.activeFriendIdSignal() === friendId) this.closeThread();
+    this.unreadCountsSignal.update((counts) => {
+      const { [friendId]: _removed, ...rest } = counts;
+      return rest;
+    });
   }
 
   send(text: string): void {
