@@ -970,6 +970,37 @@ function serializeLobby(lobby: LobbyState) {
 // Matchmaking
 const matchmakingQueue = new Map<string, MatchmakingPlayer>();
 
+// Emparejamiento ya hecho que espera a que acabe la pantalla VS para arrancar. Existe para poder
+// cancelarlo si alguien sale durante esos segundos, y para no arrancar una partida a la que uno de
+// los dos ya no está conectado.
+interface PendingMatch {
+  gameId: string;
+  players: [MatchmakingPlayer, MatchmakingPlayer];
+  cancelled: boolean;
+}
+const pendingMatches = new Map<string, PendingMatch>();
+
+// Un jugador en cola sin socket conectado (el navegador perdió la conexión y no la recuperó) no se
+// empareja: el rival vería la pantalla VS y una partida contra alguien que no está. Si sigue sin
+// aparecer pasado este tiempo, se le saca de la cola.
+const MATCHMAKING_STALE_MS = 20_000;
+
+// Devuelve a la cola a quien seguía conectado cuando se cancela un emparejamiento y le avisa
+// para que su pantalla vuelva a "buscando". Conserva su hora de entrada: no pierde su turno.
+function requeueAndNotify(player: MatchmakingPlayer): void {
+  if (!isUserOnline(player.userId)) return;
+  matchmakingQueue.set(player.userId, { ...player, lastSeen: Date.now() });
+  emitToUser(player.userId, 'matchCancelled');
+}
+
+function cancelPendingMatch(pending: PendingMatch, leaverId: string): void {
+  pending.cancelled = true;
+  for (const p of pending.players) {
+    if (pendingMatches.get(p.userId) === pending) pendingMatches.delete(p.userId);
+    if (p.userId !== leaverId) requeueAndNotify(p);
+  }
+}
+
 app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -978,14 +1009,14 @@ app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
       return;
     }
     
-    // Add to matchmaking queue
+    // Add to matchmaking queue (si ya estaba, conserva su hora de entrada)
     matchmakingQueue.set(req.user.userId, {
       userId: req.user.userId,
       username: user.username,
       elo: user.elo,
       avatar: user.avatar,
       socketId: undefined,
-      queuedAt: Date.now()
+      queuedAt: matchmakingQueue.get(req.user.userId)?.queuedAt ?? Date.now()
     });
 
     res.json({ success: true, message: 'Buscando partida...' });
@@ -996,6 +1027,9 @@ app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
 });
 
 app.post('/api/matchmaking/leave', authenticateToken, (req: any, res) => {
+  // Salir durante la pantalla VS cancela el emparejamiento (antes la partida arrancaba igual).
+  const pending = pendingMatches.get(req.user.userId);
+  if (pending) cancelPendingMatch(pending, req.user.userId);
   matchmakingQueue.delete(req.user.userId);
   res.json({ success: true, message: 'Saliendo de la cola' });
 });
@@ -1361,7 +1395,14 @@ io.on('connection', (socket) => {
   // El cliente lo pide si la pantalla VS se pasa de tiempo sin que llegue la partida.
   socket.on('game:resync', () => {
     const userId = (socket as any).userId;
-    if (userId) resyncActiveGame(userId);
+    if (!userId) return;
+    resyncActiveGame(userId);
+    // Si su emparejamiento ya no existe (se canceló mientras estaba desconectado) y no está en
+    // partida ni en cola, su pantalla VS se quedaría colgada: se le avisa para que vuelva a buscar.
+    const inGame = [...activeGames.values()].some((g) => g.gameDoc.players.some((p: any) => p.userId === userId));
+    if (!inGame && !matchmakingQueue.has(userId) && !pendingMatches.has(userId)) {
+      socket.emit('matchCancelled');
+    }
   });
 
   // Palabra enviada en una partida versus: el servidor valida, retransmite a
@@ -1686,9 +1727,22 @@ function matchmakingRange(player: MatchmakingPlayer): number {
 
 // Matchmaking logic
 setInterval(() => {
+  // Solo se empareja a quien tiene un socket conectado ahora mismo (así los dos reciben
+  // matchFound y gameStart). Quien lleva demasiado sin conexión se saca de la cola.
+  const now = Date.now();
+  for (const [userId, queued] of matchmakingQueue) {
+    if (isUserOnline(userId)) {
+      queued.lastSeen = now;
+    } else if (now - (queued.lastSeen ?? queued.queuedAt) > MATCHMAKING_STALE_MS) {
+      matchmakingQueue.delete(userId);
+    }
+  }
+
   // Ordenados por ELO: los rivales más parecidos quedan adyacentes, así el
   // bucle encuentra primero los emparejamientos más justos antes que los amplios
-  const players = Array.from(matchmakingQueue.values()).sort((a, b) => a.elo - b.elo);
+  const players = Array.from(matchmakingQueue.values())
+    .filter((p) => isUserOnline(p.userId))
+    .sort((a, b) => a.elo - b.elo);
 
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
@@ -1735,8 +1789,33 @@ setInterval(() => {
         notifyMatchFound(player1, player2);
         notifyMatchFound(player2, player1);
 
-        // Pausa antes de arrancar para que se vea la pantalla VS
-        setTimeout(() => { startVersusGame(gameId, player1, player2); }, VERSUS_INTRO_MS);
+        // Pausa antes de arrancar para que se vea la pantalla VS. Al acabar se comprueba que el
+        // emparejamiento sigue en pie y que los dos siguen conectados: si no, se cancela y quien
+        // sí está vuelve a la cola, en vez de arrancar una partida contra alguien que no está
+        // (que acabaría en abandono y daría ELO gratis al otro).
+        const pending: PendingMatch = { gameId, players: [player1, player2], cancelled: false };
+        pendingMatches.set(player1.userId, pending);
+        pendingMatches.set(player2.userId, pending);
+
+        setTimeout(async () => {
+          for (const p of pending.players) {
+            if (pendingMatches.get(p.userId) === pending) pendingMatches.delete(p.userId);
+          }
+          if (pending.cancelled) return;
+
+          if (!isUserOnline(player1.userId) || !isUserOnline(player2.userId)) {
+            pending.cancelled = true;
+            pending.players.forEach(requeueAndNotify);
+            return;
+          }
+          try {
+            await startVersusGame(gameId, player1, player2);
+          } catch (error) {
+            console.error('Error arrancando la partida versus:', error);
+            pending.cancelled = true;
+            pending.players.forEach(requeueAndNotify);
+          }
+        }, VERSUS_INTRO_MS);
 
         break;
       }
