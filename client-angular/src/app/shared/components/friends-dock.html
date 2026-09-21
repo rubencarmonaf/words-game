@@ -1,4 +1,4 @@
-<div class="friends-dock" [class.expanded]="expanded()">
+<div class="friends-dock" [class.expanded]="expanded()" [class.chat-open]="chatOpen()">
   @if (!expanded()) {
     <button type="button" class="dock-toggle" (click)="toggle()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -6,8 +6,8 @@
         <path d="M22 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
       </svg>
       <span>Amigos</span>
-      @if (totalUnread() > 0) {
-        <span class="dock-badge">{{ totalUnread() }}</span>
+      @if (badgeCount() > 0) {
+        <span class="dock-badge">{{ badgeCount() }}</span>
       }
     </button>
   } @else {
@@ -46,6 +46,7 @@
 
         @if (pendingRequests().length > 0) {
           <div class="friend-requests">
+            <span class="friend-requests-title">Solicitudes de amistad ({{ pendingRequests().length }})</span>
             @for (request of pendingRequests(); track request.id) {
               <div class="friend-request">
                 <span>{{ request.from.username }} quiere ser tu amigo</span>
@@ -80,6 +81,14 @@
                     {{ friend.online ? 'En línea' : 'Desconectado' }}
                   </span>
                 </span>
+                <button
+                  type="button"
+                  class="friend-row-chat"
+                  (click)="openChat(friend.id); $event.stopPropagation()"
+                  [attr.aria-label]="'Chatear con ' + friend.username"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                </button>
               </div>
             }
           }

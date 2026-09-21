@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, of, tap } from 'rxjs';
 import type { ApiResponse, AvatarOptions } from '@shared-types';
 import { Socket } from './socket';
+import { Toast } from '../../shared/services/toast';
 
 export interface Friend {
   id: string;
@@ -30,11 +31,15 @@ interface PresencePayload {
 export class Friends {
   private readonly http = inject(HttpClient);
   private readonly socket = inject(Socket);
+  private readonly toast = inject(Toast);
 
   private readonly friendsSignal = signal<Friend[]>([]);
   private readonly requestsSignal = signal<FriendRequest[]>([]);
   readonly friends = this.friendsSignal.asReadonly();
   readonly requests = this.requestsSignal.asReadonly();
+  /** Sube cada vez que algo pide ver las solicitudes (p. ej. el botón "Ver" del aviso):
+   * el widget de amigos se abre al cambiar. */
+  readonly revealRequestsTick = signal(0);
 
   constructor() {
     this.socket.on<PresencePayload>('friend:online').subscribe(({ userId }) => this.setOnline(userId, true));
@@ -49,6 +54,22 @@ export class Friends {
     // que el usuario tenga que recargar la página a mano.
     this.socket.on<void>('connect').subscribe(() => {
       this.refresh().subscribe();
+      this.refreshRequests().subscribe();
+    });
+
+    // Una solicitud nueva aparece al momento y se queda en la lista hasta que se
+    // acepte o rechace (también queda guardada en el servidor, así que sobrevive a recargar).
+    this.socket.on<FriendRequest>('friend:request').subscribe((request) => {
+      this.requestsSignal.update((list) => (list.some((r) => r.id === request.id) ? list : [...list, request]));
+      this.toast.show(`${request.from.username} te ha enviado una solicitud de amistad`, 'info', {
+        label: 'Ver',
+        onClick: () => this.revealRequestsTick.update((n) => n + 1),
+      });
+    });
+
+    this.socket.on<{ id: string; username: string }>('friend:accepted').subscribe((friend) => {
+      this.refresh().subscribe();
+      this.toast.show(`${friend.username} ha aceptado tu solicitud de amistad`, 'success');
     });
   }
 

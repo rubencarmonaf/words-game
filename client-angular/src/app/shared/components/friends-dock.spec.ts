@@ -7,6 +7,7 @@ import { FriendsDock } from './friends-dock';
 import { Messages } from '../../core/services/messages';
 import { Socket } from '../../core/services/socket';
 import { FakeSocket } from '../../core/services/socket.testing';
+import { Friends } from '../../core/services/friends';
 
 function fakeToken(userId: string): string {
   return `header.${btoa(JSON.stringify({ userId }))}.sig`;
@@ -86,5 +87,47 @@ describe('FriendsDock', () => {
 
     const badge = fixture.nativeElement.querySelector('.dock-badge');
     expect(badge?.textContent?.trim()).toBe('1');
+  });
+
+  it('counts a new friend request in the badge of the collapsed button', async () => {
+    await setup();
+    socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.dock-badge')?.textContent?.trim()).toBe('1');
+  });
+
+  it('expands and lists the request when the notice asks to see it', async () => {
+    await setup();
+    socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+    TestBed.inject(Friends).revealRequestsTick.update((n) => n + 1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const requests = fixture.nativeElement.querySelector('.friend-requests') as HTMLElement;
+    expect(requests.textContent).toContain('Beto quiere ser tu amigo');
+  });
+
+  it('opens the chat with a single click on the chat button, without needing a double click', async () => {
+    await setup();
+    fixture.componentInstance['expanded'].set(true);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.friend-row-chat') as HTMLButtonElement).click();
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+
+    expect(TestBed.inject(Messages).activeFriendId()).toBe('f1');
+  });
+
+  it('marks the dock as chat-open while a conversation is active (it hides on mobile)', async () => {
+    await setup();
+    expect(fixture.nativeElement.querySelector('.friends-dock')?.classList.contains('chat-open')).toBe(false);
+
+    TestBed.inject(Messages).openThread('f1');
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.friends-dock')?.classList.contains('chat-open')).toBe(true);
   });
 });

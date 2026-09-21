@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Friends } from './friends';
 import { Socket } from './socket';
 import { FakeSocket } from './socket.testing';
+import { Toast } from '../../shared/services/toast';
 
 describe('Friends', () => {
   let service: Friends;
@@ -87,6 +88,8 @@ describe('Friends', () => {
       success: true,
       data: [{ id: 'u1', username: 'Ana', elo: 1000, online: true }],
     });
+    // La reconexión también recarga las solicitudes pendientes.
+    httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
 
     expect(service.friends()).toEqual([{ id: 'u1', username: 'Ana', elo: 1000, online: true }]);
   });
@@ -112,5 +115,34 @@ describe('Friends', () => {
     httpMock.expectOne('/api/friends/respond').flush({ success: true, message: 'Solicitud aceptada' });
 
     expect(service.requests()).toEqual([]);
+  });
+
+  it('friend:request adds the request live, once, and shows a notice with a "Ver" action', () => {
+    const request = { id: 'r9', from: { id: 'u9', username: 'Dani' } };
+
+    socket.push('friend:request', request);
+    socket.push('friend:request', request);
+
+    expect(service.requests()).toEqual([request]);
+    const notice = TestBed.inject(Toast).messages()[0];
+    expect(notice.text).toContain('Dani');
+    expect(notice.action?.label).toBe('Ver');
+
+    notice.action?.onClick();
+    expect(service.revealRequestsTick()).toBe(1);
+  });
+
+  it('friend:accepted reloads the friends list and says who accepted', () => {
+    socket.push('friend:accepted', { id: 'u4', username: 'Eva' });
+
+    httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
+    expect(TestBed.inject(Toast).messages()[0].text).toContain('Eva');
+  });
+
+  it('a socket reconnection reloads the pending requests too, not just the friends', () => {
+    socket.push('connect', undefined);
+
+    httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
   });
 });
