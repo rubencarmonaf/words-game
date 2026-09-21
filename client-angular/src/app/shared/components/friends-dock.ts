@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Friends } from '../../core/services/friends';
 import { Messages } from '../../core/services/messages';
@@ -40,6 +40,18 @@ export class FriendsDock implements OnInit {
   protected readonly totalUnread = computed(() =>
     Object.values(this.unreadCounts()).reduce((sum, n) => sum + n, 0),
   );
+
+  /** Lo que pide atención en el botón plegado: mensajes sin leer y solicitudes pendientes. */
+  protected readonly badgeCount = computed(() => this.totalUnread() + this.pendingRequests().length);
+
+  /** Con un chat abierto, en móvil ocupa toda la pantalla y el widget se oculta (ver scss). */
+  protected readonly chatOpen = computed(() => this.messagesService.activeFriendId() !== null);
+
+  constructor() {
+    effect(() => {
+      if (this.friendsService.revealRequestsTick() > 0) this.expanded.set(true);
+    });
+  }
 
   ngOnInit(): void {
     this.friendsService.refresh().subscribe();
