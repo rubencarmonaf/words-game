@@ -1273,7 +1273,13 @@ function gameStatePayload(gameId: string, active: { gameDoc: any; startedAt: num
     gameId,
     prefix: active.gameDoc.prefix,
     gameType: active.gameDoc.gameType,
-    players: players.map((p) => ({ userId: p.userId, username: p.username, words: p.words ?? [], score: p.score ?? 0 })),
+    // Las palabras solo de quien pide el estado; de los demás, solo su marcador
+    players: players.map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      words: p.userId === userId ? (p.words ?? []) : [],
+      score: p.score ?? 0
+    })),
     remainingSeconds: Math.max(0, Math.round((active.startedAt + active.durationMs - Date.now()) / 1000)),
     resumed: true,
     me: userId
@@ -1521,8 +1527,14 @@ io.on('connection', (socket) => {
     await gameDoc.save();
 
     const player = gameDoc.players.find((p: any) => p.userId === authSocket.userId);
-    const payload = { word, playerId: authSocket.userId, score: player?.score || 0 };
-    for (const p of gameDoc.players) emitToUser(p.userId, 'wordSubmitted', payload);
+    // A quien la dijo se le confirma con su palabra. Al resto solo se le actualiza el marcador:
+    // no se les manda la palabra (ni siquiera de forma que no se vea en pantalla), porque cada
+    // uno tiene que pensar las suyas sin ver las del rival.
+    const score = player?.score || 0;
+    for (const p of gameDoc.players) {
+      const payload = p.userId === authSocket.userId ? { word, playerId: authSocket.userId, score } : { playerId: authSocket.userId, score };
+      emitToUser(p.userId, 'wordSubmitted', payload);
+    }
   });
 
   // Abandono voluntario de una partida versus o con amigos en curso: cuenta como derrota
