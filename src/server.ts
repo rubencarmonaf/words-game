@@ -710,6 +710,35 @@ app.post('/api/friends/respond', authenticateToken, async (req: any, res) => {
   }
 });
 
+// Eliminar a un amigo. La amistad es una sola para los dos, así que al borrarla desaparece
+// de ambas listas, y sin ella tampoco se pueden mandar mensajes ni invitaciones (todo eso
+// comprueba que la amistad exista). No se avisa con un mensaje a la otra persona: solo se
+// le actualiza la lista en vivo. Los mensajes anteriores no se borran.
+app.delete('/api/friends/:friendId', authenticateToken, async (req: any, res) => {
+  try {
+    const friendId = String(req.params.friendId);
+    const me = req.user.userId;
+
+    const removed = await (Friendship as any).findOneAndDelete({
+      status: 'accepted',
+      $or: [
+        { requester: me, addressee: friendId },
+        { requester: friendId, addressee: me }
+      ]
+    });
+    if (!removed) {
+      res.status(404).json({ success: false, message: 'No sois amigos' });
+      return;
+    }
+
+    emitToUser(friendId, 'friend:removed', { id: me });
+    res.json({ success: true, message: 'Amigo eliminado' });
+  } catch (error) {
+    console.error('Error eliminando amigo:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
 // Tiempo que tiene que pasar antes de dejar reenviar una solicitud que rechazaron.
 const FRIEND_REQUEST_RETRY_MS = 24 * 60 * 60 * 1000;
 
@@ -811,8 +840,12 @@ app.post('/api/friends/request', authenticateToken, async (req: any, res) => {
 // Conteo de mensajes no leídos por remitente, para el badge del widget flotante
 app.get('/api/messages/unread-counts', authenticateToken, async (req: any, res) => {
   try {
+    // Solo de amigos actuales: los mensajes de alguien a quien se eliminó no deben seguir
+    // sumando en el aviso, ya que su chat no se puede abrir para leerlos.
+    const friends = await (Friendship as any).getFriends(req.user.userId);
+    const friendIds = friends.map((f: any) => f.id.toString());
     const counts = await (Message as any).aggregate([
-      { $match: { to: req.user.userId, read: false } },
+      { $match: { to: req.user.userId, read: false, from: { $in: friendIds } } },
       { $group: { _id: '$from', count: { $sum: 1 } } }
     ]);
     const data: Record<string, number> = {};
