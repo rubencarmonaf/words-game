@@ -21,7 +21,9 @@ const friendshipSchema = new Schema<IFriendship>({
     type: Date,
     default: Date.now
   },
-  acceptedAt: Date
+  acceptedAt: Date,
+  // Cuándo se rechazó la solicitud: da el margen antes de dejar reintentarla.
+  respondedAt: Date
 });
 
 // Ensure unique friendship pairs

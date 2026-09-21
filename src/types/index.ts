@@ -83,6 +83,7 @@ export interface IFriendship extends Document {
   status: 'pending' | 'accepted' | 'declined' | 'blocked';
   createdAt: Date;
   acceptedAt?: Date;
+  respondedAt?: Date;
 }
 
 // Friendship Model with static methods

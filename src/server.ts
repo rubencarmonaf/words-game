@@ -694,7 +694,14 @@ app.post('/api/friends/respond', authenticateToken, async (req: any, res) => {
     }
 
     friendship.status = accept ? 'accepted' : 'declined';
+    if (!accept) friendship.respondedAt = new Date();
     await friendship.save();
+
+    // Quien envió la solicitud se entera en vivo de que la aceptaron (para que su lista de
+    // amigos se actualice sola). El rechazo no se notifica.
+    if (accept) {
+      emitToUser(String(friendship.requester), 'friend:accepted', { id: req.user.userId, username: req.user.username });
+    }
 
     res.json({ success: true, message: accept ? 'Solicitud aceptada' : 'Solicitud rechazada' });
   } catch (error) {
@@ -702,6 +709,9 @@ app.post('/api/friends/respond', authenticateToken, async (req: any, res) => {
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
+
+// Tiempo que tiene que pasar antes de dejar reenviar una solicitud que rechazaron.
+const FRIEND_REQUEST_RETRY_MS = 24 * 60 * 60 * 1000;
 
 app.post('/api/friends/request', authenticateToken, async (req: any, res) => {
   try {
@@ -731,18 +741,62 @@ app.post('/api/friends/request', authenticateToken, async (req: any, res) => {
       ]
     });
 
+    let friendship = existingFriendship;
+
     if (existingFriendship) {
-      res.status(400).json({ success: false, message: 'Solicitud ya enviada o ya son amigos' });
-      return;
+      const iAmRequester = existingFriendship.requester === req.user.userId;
+
+      if (existingFriendship.status === 'accepted') {
+        res.status(400).json({ success: false, message: 'Ya sois amigos' });
+        return;
+      }
+      if (existingFriendship.status === 'pending') {
+        res.status(400).json({
+          success: false,
+          message: iAmRequester
+            ? 'Ya enviaste una solicitud a este usuario'
+            : 'Este usuario ya te envió una solicitud: acéptala desde tu lista de amigos'
+        });
+        return;
+      }
+      if (existingFriendship.status !== 'declined') {
+        res.status(400).json({ success: false, message: 'No puedes enviar una solicitud a este usuario' });
+        return;
+      }
+
+      // Rechazada: quien rechazó puede cambiar de opinión cuando quiera; a quien fue
+      // rechazado se le deja reintentarlo pasado un tiempo, para que no sea un acoso.
+      if (iAmRequester && existingFriendship.respondedAt) {
+        const retryAt = existingFriendship.respondedAt.getTime() + FRIEND_REQUEST_RETRY_MS;
+        if (Date.now() < retryAt) {
+          const hours = Math.ceil((retryAt - Date.now()) / (60 * 60 * 1000));
+          res.status(400).json({ success: false, message: `Esta solicitud no se aceptó. Podrás volver a enviarla en unas ${hours} h` });
+          return;
+        }
+      }
+
+      // Se reutiliza el mismo registro (el par es único), con quien envía ahora como solicitante.
+      existingFriendship.requester = req.user.userId;
+      existingFriendship.addressee = friend._id.toString();
+      existingFriendship.status = 'pending';
+      existingFriendship.respondedAt = undefined;
+    } else {
+      friendship = new (Friendship as any)({
+        requester: req.user.userId,
+        addressee: friend._id.toString(),
+        status: 'pending'
+      });
     }
 
-    const friendship = new (Friendship as any)({
-      requester: req.user.userId,
-      addressee: friend._id.toString(),
-      status: 'pending'
+    await friendship.save();
+
+    // Al destinatario le aparece al momento (aviso y solicitud en su lista de amigos), sin
+    // tener que recargar. Si no está conectado, la ve al entrar: la solicitud queda guardada.
+    emitToUser(friend._id.toString(), 'friend:request', {
+      id: friendship._id.toString(),
+      from: { id: req.user.userId, username: req.user.username }
     });
 
-    await friendship.save();
     res.json({ success: true, message: 'Solicitud enviada' });
   } catch (error) {
     console.error('Error enviando solicitud:', error);
@@ -1053,7 +1107,48 @@ const VERSUS_INTRO_MS = 5000;
 // Partidas versus/amigos en curso: el documento Game vive en memoria durante la partida
 // y se persiste en cada palabra/al terminar, evitando una relectura por jugada.
 // hostId solo se rellena para partidas "con amigos" (versus no tiene anfitrión).
-const activeGames = new Map<string, { gameDoc: any; timer: NodeJS.Timeout; hostId?: string }>();
+const activeGames = new Map<string, { gameDoc: any; timer: NodeJS.Timeout; hostId?: string; startedAt: number; durationMs: number }>();
+
+// Margen antes de dar por abandonada una partida cuando el socket de un jugador se cae:
+// en móvil es habitual perder la conexión unos segundos (cambio de red, pantalla apagada)
+// y volver enseguida. Si vuelve dentro del margen, sigue jugando.
+const DISCONNECT_GRACE_MS = 10_000;
+
+// Cuando el jugador no tenía socket al arrancar la partida, o lo perdió durante ella, se
+// comprueba pasado el margen si sigue sin conexión y solo entonces se le da por abandonado.
+function forfeitIfStillOffline(gameId: string, userId: string): void {
+  setTimeout(() => {
+    if (isUserOnline(userId)) return;
+    const active = activeGames.get(gameId);
+    if (active && active.gameDoc.players.some((p: any) => p.userId === userId)) {
+      finishGame(gameId, 'forfeit', userId);
+    }
+  }, DISCONNECT_GRACE_MS);
+}
+
+// Estado completo de una partida en curso para un jugador. Se envía al reconectar o al
+// pedirlo: si el `gameStart` original se perdió (socket caído justo entonces), el cliente
+// se pone al día con esto en vez de quedarse esperando para siempre.
+function gameStatePayload(gameId: string, active: { gameDoc: any; startedAt: number; durationMs: number }, userId: string) {
+  const players = active.gameDoc.players as { userId: string; username: string; words: string[]; score: number }[];
+  return {
+    gameId,
+    prefix: active.gameDoc.prefix,
+    gameType: active.gameDoc.gameType,
+    players: players.map((p) => ({ userId: p.userId, username: p.username, words: p.words ?? [], score: p.score ?? 0 })),
+    remainingSeconds: Math.max(0, Math.round((active.startedAt + active.durationMs - Date.now()) / 1000)),
+    resumed: true,
+    me: userId
+  };
+}
+
+function resyncActiveGame(userId: string): void {
+  for (const [gameId, active] of activeGames) {
+    if (active.gameDoc.players.some((p: any) => p.userId === userId)) {
+      emitToUser(userId, 'gameStart', gameStatePayload(gameId, active, userId));
+    }
+  }
+}
 
 async function startVersusGame(gameId: string, player1: MatchmakingPlayer, player2: MatchmakingPlayer): Promise<void> {
   const prefix = VERSUS_PREFIXES[Math.floor(Math.random() * VERSUS_PREFIXES.length)];
@@ -1072,7 +1167,7 @@ async function startVersusGame(gameId: string, player1: MatchmakingPlayer, playe
   await gameDoc.save();
 
   const timer = setTimeout(() => { finishGame(gameId, 'timeout'); }, VERSUS_DURATION_MS);
-  activeGames.set(gameId, { gameDoc, timer });
+  activeGames.set(gameId, { gameDoc, timer, startedAt: Date.now(), durationMs: VERSUS_DURATION_MS });
 
   const startPayload = {
     gameId,
@@ -1083,8 +1178,12 @@ async function startVersusGame(gameId: string, player1: MatchmakingPlayer, playe
     ]
   };
 
-  emitToUser(player1.userId, 'gameStart', startPayload);
-  emitToUser(player2.userId, 'gameStart', startPayload);
+  for (const player of [player1, player2]) {
+    emitToUser(player.userId, 'gameStart', startPayload);
+    // Sin socket ahora mismo: recibirá la partida al reconectar (ver authenticate) si
+    // vuelve dentro del margen; si no, se le da por abandonada.
+    if (!isUserOnline(player.userId)) forfeitIfStillOffline(gameId, player.userId);
+  }
 }
 
 // Arranca una partida "Con amigos" (N jugadores, casual, sin ELO) a partir de
@@ -1105,7 +1204,7 @@ async function startLobbyGame(lobby: LobbyState): Promise<void> {
   await gameDoc.save();
 
   const timer = setTimeout(() => { finishGame(gameId, 'timeout'); }, LOBBY_DURATION_MS);
-  activeGames.set(gameId, { gameDoc, timer, hostId: lobby.hostId });
+  activeGames.set(gameId, { gameDoc, timer, hostId: lobby.hostId, startedAt: Date.now(), durationMs: LOBBY_DURATION_MS });
 
   const startPayload = {
     gameId,
@@ -1113,7 +1212,10 @@ async function startLobbyGame(lobby: LobbyState): Promise<void> {
     players: lobby.players.map((p) => ({ userId: p.userId, username: p.username }))
   };
 
-  for (const p of lobby.players) emitToUser(p.userId, 'gameStart', startPayload);
+  for (const p of lobby.players) {
+    emitToUser(p.userId, 'gameStart', startPayload);
+    if (!isUserOnline(p.userId)) forfeitIfStillOffline(gameId, p.userId);
+  }
 }
 
 // Termina una partida versus (1v1) o "con amigos" (N jugadores). El ganador es
@@ -1211,12 +1313,22 @@ io.on('connection', (socket) => {
         matchmakingQueue.set(decoded.userId, player);
       }
 
+      // Si tenía una partida en curso (el gameStart se pudo perder mientras no había socket),
+      // se le reenvía su estado.
+      resyncActiveGame(decoded.userId);
+
       if (!wasOnline) {
         await notifyFriendsOfPresence(decoded.userId, 'friend:online');
       }
     } catch (error) {
       socket.disconnect();
     }
+  });
+
+  // El cliente lo pide si la pantalla VS se pasa de tiempo sin que llegue la partida.
+  socket.on('game:resync', () => {
+    const userId = (socket as any).userId;
+    if (userId) resyncActiveGame(userId);
   });
 
   // Palabra enviada en una partida versus: el servidor valida, retransmite a
@@ -1456,9 +1568,10 @@ io.on('connection', (socket) => {
 
     matchmakingQueue.delete(authSocket.userId);
 
+    // Las partidas en curso no se pierden al instante: ver DISCONNECT_GRACE_MS.
     for (const [gameId, active] of activeGames) {
       if (active.gameDoc.players.some((p: any) => p.userId === authSocket.userId)) {
-        finishGame(gameId, 'forfeit', authSocket.userId);
+        forfeitIfStillOffline(gameId, authSocket.userId);
       }
     }
 
