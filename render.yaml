@@ -22,3 +22,8 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false
+      # Email (Resend). Sin RESEND_API_KEY no se exige verificar el email al registrarse.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

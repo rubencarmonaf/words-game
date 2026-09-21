@@ -10,8 +10,12 @@ import User from '../src/models/User';
 dotenv.config();
 
 async function run(): Promise<void> {
-  const email = (process.argv[2] || 'ruben@therevenuelabs.com').toLowerCase().trim();
-  const newPassword = process.argv[3] || 'WordWars-Temp-2026!';
+  const [emailArg, newPassword] = process.argv.slice(2);
+  if (!emailArg || !newPassword) {
+    console.error('Uso: npx ts-node scripts/reset-my-password.ts <email> <nuevaContraseña>');
+    process.exit(1);
+  }
+  const email = emailArg.toLowerCase().trim();
 
   const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/wordwars';
   await mongoose.connect(uri);

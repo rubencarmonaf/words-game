@@ -21,13 +21,16 @@ import Message from './models/Message';
 
 // Import services
 import { dictionaryService } from './utils/dictionary';
-import { sendPasswordResetEmail } from './utils/email';
+import { sendPasswordResetEmail, sendVerificationEmail, isEmailConfigured, warnAboutEmailConfig } from './utils/email';
+import { normalizeEmail, isValidEmailFormat, isDisposableEmail, domainCanReceiveMail } from './utils/emailAddress';
 
 // Import types
 import { 
   AuthenticatedRequest, 
   ApiResponse, 
   AuthResponse, 
+  RegisterResponse,
+  IUser,
   WordValidationResponse,
   MatchmakingPlayer,
   AuthenticatedSocket,
@@ -119,6 +122,8 @@ const loginLimiterByEmail = makeLimiter(15 * 60 * 1000, 10, TOO_MANY, {
 const registerLimiter = makeLimiter(60 * 60 * 1000, 10, 'Demasiados registros desde esta conexión. Inténtalo más tarde.');
 const forgotPasswordLimiter = makeLimiter(60 * 60 * 1000, 5, TOO_MANY);
 const resetPasswordLimiter = makeLimiter(60 * 60 * 1000, 10, TOO_MANY);
+const verifyEmailLimiter = makeLimiter(60 * 60 * 1000, 30, TOO_MANY);
+const resendVerificationLimiter = makeLimiter(60 * 60 * 1000, 5, TOO_MANY);
 
 // Database connection
 const connectDB = async (): Promise<void> => {
@@ -163,14 +168,66 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Servidor funcionando' });
 });
 
+// ---------- Verificación de email ----------
+const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
+// Una cuenta sin verificar se borra sola pasado este tiempo (índice TTL del modelo).
+const UNVERIFIED_ACCOUNT_TTL_MS = 48 * 60 * 60 * 1000;
+const VERIFY_RESEND_COOLDOWN_MS = 60 * 1000;
+
+// Se exige confirmar el email en cuanto hay forma de mandarlo (o en desarrollo, donde el
+// enlace sale por la consola). En producción sin RESEND_API_KEY no se exige: nadie podría
+// recibir el enlace y la web quedaría cerrada a las cuentas nuevas.
+const emailVerificationRequired = (): boolean => isEmailConfigured() || process.env.NODE_ENV !== 'production';
+
+const clientBaseUrl = (): string => (process.env.CLIENT_URL || 'http://localhost:4200').replace(/\/+$/, '');
+
+const sha256 = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
+
+// Se busca por la clave normalizada (a.b+x@gmail.com == ab@gmail.com) y, por si la cuenta
+// es anterior a que existiera, también por la dirección tal cual.
+const findUserByEmail = (email: string) => {
+  const lower = email.trim().toLowerCase();
+  return User.findOne({ $or: [{ emailKey: normalizeEmail(lower) }, { email: lower }] });
+};
+
+const signSession = (user: IUser): AuthResponse => ({
+  token: jwt.sign({ userId: user._id, username: user.username }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '24h' }),
+  user: (user as any).toPublicJSON()
+});
+
+/** Genera un token nuevo (solo se guarda su hash), lo guarda y manda el enlace.
+ * Devuelve si el correo salió; la cuenta queda guardada en cualquier caso. */
+async function startEmailVerification(user: IUser): Promise<boolean> {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  user.emailVerificationToken = sha256(rawToken);
+  user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_MS);
+  user.emailVerificationSentAt = new Date();
+  user.unverifiedExpiresAt = new Date(Date.now() + UNVERIFIED_ACCOUNT_TTL_MS);
+  await user.save();
+
+  try {
+    await sendVerificationEmail(user.email, user.username, `${clientBaseUrl()}/auth/verify-email?token=${rawToken}`);
+    return true;
+  } catch (mailError) {
+    console.error('Error enviando email de verificación:', mailError);
+    return false;
+  }
+}
+
+const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: number })?.code === 11000;
+
 // Auth routes
 app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
+
     // Validation
     if (!username || !email || !password) {
       res.status(400).json({ success: false, message: 'Todos los campos son requeridos' });
+      return;
+    }
+    if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      res.status(400).json({ success: false, message: 'Datos no válidos' });
       return;
     }
 
@@ -178,12 +235,49 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
       return;
     }
-    
-    // Check if user exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = username.trim();
+    if (!isValidEmailFormat(cleanEmail)) {
+      res.status(400).json({ success: false, message: 'Introduce un email válido' });
+      return;
+    }
+    if (isDisposableEmail(cleanEmail)) {
+      res.status(400).json({ success: false, message: 'No se admiten emails temporales. Usa tu email personal.' });
+      return;
+    }
+    if (!(await domainCanReceiveMail(cleanEmail))) {
+      res.status(400).json({ success: false, message: 'Ese dominio de email no existe o no puede recibir correo' });
+      return;
+    }
+
+    const emailKey = normalizeEmail(cleanEmail);
+    const verificationRequired = emailVerificationRequired();
+
+    // Una cuenta pendiente de verificar no reserva el email: si su dueño real se registra,
+    // pasa por delante (así nadie puede bloquear la dirección de otra persona).
+    await User.deleteMany({
+      emailVerified: false,
+      unverifiedExpiresAt: { $ne: null },
+      $or: [{ emailKey }, { email: cleanEmail }]
     });
-    
+
+    // Quien se equivocó de email al registrarse puede repetirlo con el mismo usuario y la
+    // misma contraseña: sustituye a su cuenta pendiente. Sin la contraseña no se toca.
+    const pendingSameName = await User.findOne({
+      username: cleanUsername,
+      emailVerified: false,
+      unverifiedExpiresAt: { $ne: null }
+    });
+    if (pendingSameName && (await pendingSameName.comparePassword(password))) {
+      await pendingSameName.deleteOne();
+    }
+
+    // Check if user exists
+    const existingUser = await User.findOne({
+      $or: [{ emailKey }, { email: cleanEmail }, { username: cleanUsername }]
+    });
+
     if (existingUser) {
       res.status(400).json({ success: false, message: 'Usuario ya existe' });
       return;
@@ -191,27 +285,27 @@ app.post('/api/register', registerLimiter, async (req, res) => {
 
     // Create user (elo/gamesPlayed/gamesWon start at the schema defaults)
     const user = new User({
-      username,
-      email,
+      username: cleanUsername,
+      email: cleanEmail,
       password // Will be hashed by pre-save middleware
     });
 
+    if (verificationRequired) {
+      // Sin sesión hasta confirmar el email: el token llega al abrir el enlace.
+      const emailSent = await startEmailVerification(user);
+      const response: RegisterResponse = { verificationRequired: true, email: user.email, emailSent };
+      res.status(201).json({ success: true, data: response });
+      return;
+    }
+
     await user.save();
-    
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user._id, username: user.username },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-
-    const response: AuthResponse = {
-      token,
-      user: user.toPublicJSON()
-    };
-
+    const response: RegisterResponse = signSession(user);
     res.status(201).json({ success: true, data: response });
   } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      res.status(400).json({ success: false, message: 'Usuario ya existe' });
+      return;
+    }
     console.error('Error en registro:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
@@ -220,13 +314,13 @@ app.post('/api/register', registerLimiter, async (req, res) => {
 app.post('/api/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    if (!email || !password) {
+
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ success: false, message: 'Email y contraseña requeridos' });
       return;
     }
-    
-    const user = await User.findOne({ email });
+
+    const user = await findUserByEmail(email);
     if (!user) {
       res.status(400).json({ success: false, message: 'Credenciales inválidas' });
       return;
@@ -238,20 +332,88 @@ app.post('/api/login', loginLimiterByIp, loginLimiterByEmail, async (req, res) =
       return;
     }
 
-    const token = jwt.sign(
-      { userId: user._id, username: user.username },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
+    // Se comprueba después de la contraseña: quien no la sabe no averigua si la cuenta existe.
+    if (!user.emailVerified && emailVerificationRequired()) {
+      res.status(403).json({
+        success: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Confirma tu email para poder iniciar sesión. Te enviamos un enlace al registrarte.'
+      });
+      return;
+    }
 
-    const response: AuthResponse = {
-      token,
-      user: user.toPublicJSON()
-    };
-
+    const response: AuthResponse = signSession(user);
     res.json({ success: true, data: response });
   } catch (error) {
     console.error('Error en login:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Confirmar el email con el token del enlace. Es un POST (lo lanza la página, no el GET
+// del enlace) para que los antivirus de correo que "abren" los enlaces no lo consuman.
+app.post('/api/verify-email', verifyEmailLimiter, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ success: false, code: 'INVALID_TOKEN', message: 'Enlace no válido' });
+      return;
+    }
+
+    const user = await User.findOne({
+      emailVerificationToken: sha256(token),
+      emailVerificationExpires: { $gt: new Date() }
+    });
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        code: 'INVALID_TOKEN',
+        message: 'El enlace no es válido o ha caducado. Inicia sesión para recibir uno nuevo.'
+      });
+      return;
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpires = null;
+    user.unverifiedExpiresAt = null;
+    await user.save();
+
+    const response: AuthResponse = signSession(user);
+    res.json({ success: true, data: response });
+  } catch (error) {
+    console.error('Error en verify-email:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Reenviar el enlace de verificación. Respuesta genérica (no revela si la cuenta existe) y
+// con un mínimo entre envíos para que no se use para mandar correo a mansalva.
+app.post('/api/resend-verification', resendVerificationLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ success: false, message: 'Email requerido' });
+      return;
+    }
+
+    const genericResponse = {
+      success: true,
+      data: { message: 'Si la cuenta está pendiente de verificar, te hemos enviado un nuevo enlace.' }
+    };
+
+    const user = await findUserByEmail(email);
+    const sentRecently =
+      user?.emailVerificationSentAt && Date.now() - user.emailVerificationSentAt.getTime() < VERIFY_RESEND_COOLDOWN_MS;
+    if (!user || user.emailVerified || sentRecently) {
+      res.json(genericResponse);
+      return;
+    }
+
+    await startEmailVerification(user);
+    res.json(genericResponse);
+  } catch (error) {
+    console.error('Error en resend-verification:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
@@ -261,12 +423,12 @@ app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       res.status(400).json({ success: false, message: 'Email requerido' });
       return;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await findUserByEmail(email);
 
     // Respuesta genérica: no revelamos si el email existe o no (evita enumeración de cuentas)
     const genericResponse = {
@@ -281,14 +443,12 @@ app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
 
     // Token en claro (va en el enlace) + hash sha256 que es lo único que guardamos
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    user.resetPasswordToken = hashedToken;
+    user.resetPasswordToken = sha256(rawToken);
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
     await user.save();
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const resetUrl = `${clientUrl}/?reset=${rawToken}`;
+    const resetUrl = `${clientBaseUrl()}/?reset=${rawToken}`;
 
     try {
       await sendPasswordResetEmail(user.email, resetUrl);
@@ -304,12 +464,12 @@ app.post('/api/forgot-password', forgotPasswordLimiter, async (req, res) => {
   }
 });
 
-// Confirmar reseteo: valida el token y establece la nueva contraseña
+// Establecer nueva contraseña con el token recibido por email
 app.post('/api/reset-password', resetPasswordLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
 
-    if (!token || !password) {
+    if (!token || !password || typeof token !== 'string' || typeof password !== 'string') {
       res.status(400).json({ success: false, message: 'Token y contraseña requeridos' });
       return;
     }
@@ -319,10 +479,8 @@ app.post('/api/reset-password', resetPasswordLimiter, async (req, res) => {
       return;
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
+      resetPasswordToken: sha256(token),
       resetPasswordExpires: { $gt: new Date() }
     });
 
@@ -334,6 +492,11 @@ app.post('/api/reset-password', resetPasswordLimiter, async (req, res) => {
     user.password = password; // el hook pre-save lo hashea
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
+    // Abrir este enlace demuestra que la bandeja es suya: cuenta también como verificación.
+    user.emailVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpires = null;
+    user.unverifiedExpiresAt = null;
     await user.save();
 
     res.json({ success: true, data: { message: 'Contraseña actualizada. Ya puedes iniciar sesión.' } });
@@ -1451,7 +1614,7 @@ const PUBLIC_PAGES = ['/', '/legal/privacidad', '/legal/terminos', '/legal/aviso
 // de verdad, en vez de un 200 con la pantalla de "no encontrada" (un "soft 404" que
 // los buscadores penalizan). Hay que mantenerla en sincronía con las rutas del cliente.
 const CLIENT_ROUTES: RegExp[] = [
-  /^\/auth(\/(register|forgot-password|reset-password))?$/,
+  /^\/auth(\/(register|forgot-password|reset-password|check-email|verify-email))?$/,
   /^\/(menu|profile|daily-challenge|gracias|contacto|lobby)$/,
   /^\/lobby\/[^/]+$/,
   /^\/play\/(matchmaking|game|results)$/,
@@ -1582,9 +1745,39 @@ if (CLIENT_BUILT) {
 // Start server
 const PORT = process.env.PORT || 3000;
 
+// Cuentas creadas antes de la verificación de email: se dan por verificadas y reciben su
+// clave normalizada (los campos nuevos no existen en sus documentos). Es idempotente.
+const migrateUsers = async (): Promise<void> => {
+  try {
+    const verified = await User.collection.updateMany({ emailVerified: { $exists: false } }, { $set: { emailVerified: true } });
+    const withoutKey = await User.collection.find({ emailKey: { $exists: false } }, { projection: { email: 1 } }).toArray();
+    let keyed = 0;
+    for (const doc of withoutKey) {
+      try {
+        await User.collection.updateOne({ _id: doc._id }, { $set: { emailKey: normalizeEmail(String(doc.email)) } });
+        keyed++;
+      } catch {
+        console.warn(`⚠️  Dos cuentas comparten bandeja tras normalizar (${doc.email}); se deja sin clave`);
+      }
+    }
+    if (verified.modifiedCount || keyed) {
+      console.log(`👤 Cuentas migradas: ${verified.modifiedCount} marcadas como verificadas, ${keyed} con clave de email`);
+    }
+  } catch (error) {
+    console.error('Error migrando cuentas:', error);
+  }
+};
+
 const startServer = async (): Promise<void> => {
   await connectDB();
-  
+  await migrateUsers();
+  warnAboutEmailConfig();
+  console.log(
+    emailVerificationRequired()
+      ? '✉️  Verificación de email: activada'
+      : '⚠️  RESEND_API_KEY no configurada: en producción no se exige verificar el email'
+  );
+
   server.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
     console.log(CLIENT_BUILT

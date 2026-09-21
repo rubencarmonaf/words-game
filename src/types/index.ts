@@ -18,6 +18,12 @@ export interface IUser extends Document {
   lastActive: Date;
   resetPasswordToken?: string | null;
   resetPasswordExpires?: Date | null;
+  emailKey?: string;
+  emailVerified: boolean;
+  emailVerificationToken?: string | null;
+  emailVerificationExpires?: Date | null;
+  emailVerificationSentAt?: Date | null;
+  unverifiedExpiresAt?: Date | null;
   updateStats(): void;
   updateElo(opponentElo: number, won: boolean, kFactor?: number): number;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -131,11 +137,22 @@ export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   error?: string;
+  /** Código estable para que el cliente distinga errores (p. ej. EMAIL_NOT_VERIFIED). */
+  code?: string;
 }
 
 export interface AuthResponse {
   token: string;
   user: IUserPublic;
+}
+
+/** Con la verificación de email activa el registro no devuelve sesión, solo el aviso. */
+export interface RegisterResponse {
+  token?: string;
+  user?: IUserPublic;
+  verificationRequired?: boolean;
+  email?: string;
+  emailSent?: boolean;
 }
 
 export interface WordValidationResponse {

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUser, DEFAULT_AVATAR } from '../types';
+import { normalizeEmail } from '../utils/emailAddress';
 
 const userSchema = new Schema<IUser>({
   username: {
@@ -17,6 +18,13 @@ const userSchema = new Schema<IUser>({
     unique: true,
     lowercase: true,
     trim: true
+  },
+  // Identifica la bandeja (sin puntos de Gmail ni +alias) para que no se pueda
+  // abrir infinitas cuentas con variantes de una misma dirección. Se calcula solo.
+  emailKey: {
+    type: String,
+    unique: true,
+    sparse: true
   },
   password: {
     type: String,
@@ -59,7 +67,39 @@ const userSchema = new Schema<IUser>({
   resetPasswordExpires: {
     type: Date,
     default: null
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: {
+    type: String,
+    default: null
+  },
+  emailVerificationExpires: {
+    type: Date,
+    default: null
+  },
+  emailVerificationSentAt: {
+    type: Date,
+    default: null
+  },
+  // Mientras la cuenta no esté verificada, MongoDB la borra sola al llegar esta
+  // fecha (índice TTL); al verificar se quita el campo. Las cuentas sin él no caducan.
+  unverifiedExpiresAt: {
+    type: Date,
+    default: null
   }
+});
+
+userSchema.index({ unverifiedExpiresAt: 1 }, { expireAfterSeconds: 0 });
+
+userSchema.pre('validate', function(next) {
+  // Solo al crear o al cambiar el email: las cuentas anteriores reciben su clave al arrancar (ver migrateUsers).
+  if (this.email && (this.isNew || this.isModified('email'))) {
+    this.emailKey = normalizeEmail(this.email);
+  }
+  next();
 });
 
 // Update win rate when games are played
