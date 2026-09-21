@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, effect, inject } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Lobby as LobbyService } from '../core/services/lobby';
 import { Friends } from '../core/services/friends';
@@ -20,6 +21,7 @@ export class Lobby implements OnInit, OnDestroy {
   private readonly friendsService = inject(Friends);
   private readonly game = inject(GameService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly auth = inject(Auth);
 
@@ -50,12 +52,18 @@ export class Lobby implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.friendsService.refresh().subscribe();
 
-    const lobbyId = this.route.snapshot.paramMap.get('lobbyId');
-    if (lobbyId) {
-      this.lobbyService.join(lobbyId);
-    } else {
-      this.lobbyService.create();
-    }
+    // paramMap y no snapshot: Angular reutiliza esta pantalla al pasar de
+    // /lobby/A a /lobby/B (misma ruta, otro parámetro), así que ngOnInit no
+    // vuelve a correr — sin esto, aceptar una segunda invitación estando ya
+    // dentro de un lobby no hacía nada.
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const lobbyId = params.get('lobbyId');
+      if (lobbyId) {
+        this.lobbyService.join(lobbyId);
+      } else {
+        this.lobbyService.create();
+      }
+    });
   }
 
   ngOnDestroy(): void {

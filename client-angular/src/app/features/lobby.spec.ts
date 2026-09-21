@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Lobby } from './lobby';
@@ -16,9 +17,11 @@ describe('Lobby', () => {
   let fixture: ComponentFixture<Lobby>;
   let httpMock: HttpTestingController;
   let socket: FakeSocket;
+  let routeParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   async function setup(lobbyId: string | null = null): Promise<void> {
     localStorage.setItem('authToken', fakeToken('me'));
+    routeParams = new BehaviorSubject(convertToParamMap(lobbyId ? { lobbyId } : {}));
 
     await TestBed.configureTestingModule({
       imports: [Lobby],
@@ -29,7 +32,7 @@ describe('Lobby', () => {
         { provide: Socket, useClass: FakeSocket },
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: { get: () => lobbyId } } },
+          useValue: { paramMap: routeParams.asObservable() },
         },
       ],
     }).compileComponents();
@@ -56,6 +59,16 @@ describe('Lobby', () => {
   it('with no lobbyId in the route, creates a new lobby as host', async () => {
     await setup(null);
     expect(socket.emitted).toContainEqual({ event: 'lobby:create', data: undefined });
+  });
+
+  it('when the route switches to another lobby, leaves the old one and joins the new one', async () => {
+    await setup('A');
+    socket.push('lobby:update', { lobbyId: 'A', hostId: 'host', players: [{ userId: 'me', username: 'Yo' }], playerCount: 1 });
+
+    routeParams.next(convertToParamMap({ lobbyId: 'B' }));
+
+    expect(socket.emitted).toContainEqual({ event: 'lobby:leave', data: { lobbyId: 'A' } });
+    expect(socket.emitted).toContainEqual({ event: 'lobby:join', data: { lobbyId: 'B' } });
   });
 
   it('with a lobbyId in the route, joins that lobby instead of creating one', async () => {

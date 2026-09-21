@@ -116,6 +116,79 @@
   }
 }
 
+/* Invitación a un lobby: no es una burbuja de texto sino una tarjeta con
+   acción, en el verde de "amistoso" que ya usa el modo Crear lobby. */
+.chat-invite {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--ww-surface);
+  border: 1px solid rgba(95, 217, 122, 0.36);
+  border-radius: 12px;
+}
+.chat-invite-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--line-lime);
+  background: rgba(95, 217, 122, 0.14);
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+.chat-invite-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-invite-text {
+  font-size: 0.86rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.chat-invite-status {
+  color: var(--ww-muted);
+  font-size: 0.78rem;
+}
+.chat-invite-join {
+  padding: 6px 16px;
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+.chat-invite--closed {
+  border-color: var(--ww-line);
+
+  .chat-invite-icon {
+    color: var(--ww-faint);
+    background: var(--ww-bg-2);
+  }
+  .chat-invite-text {
+    color: var(--ww-muted);
+  }
+}
+
 .chat-panel-input {
   display: flex;
   align-items: center;

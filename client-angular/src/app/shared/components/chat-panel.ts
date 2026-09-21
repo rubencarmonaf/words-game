@@ -1,7 +1,9 @@
 import { Component, ElementRef, ViewChild, computed, effect, inject } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Auth } from '../../core/services/auth';
 import { Friends } from '../../core/services/friends';
+import { Lobby } from '../../core/services/lobby';
 import { Messages } from '../../core/services/messages';
 import { WwAvatar } from './ww-avatar';
 
@@ -21,12 +23,15 @@ export class ChatPanel {
   private readonly auth = inject(Auth);
   private readonly friendsService = inject(Friends);
   private readonly messagesService = inject(Messages);
+  private readonly router = inject(Router);
+  private readonly lobbyService = inject(Lobby);
 
   @ViewChild('chatScroll') private chatScroll?: ElementRef<HTMLDivElement>;
 
   protected readonly myUserId = this.auth.getUserId();
   protected readonly messages = this.messagesService.messages;
   protected readonly chatControl = new FormControl('', { nonNullable: true });
+  protected readonly currentLobbyId = this.lobbyService.lobbyId;
 
   protected readonly activeFriend = computed(() => {
     const id = this.messagesService.activeFriendId();
@@ -46,6 +51,12 @@ export class ChatPanel {
   protected close(): void {
     this.messagesService.closeThread();
     this.chatControl.setValue('');
+  }
+
+  /** Acepta una invitación del chat: la pantalla del lobby se une a él
+   * por el id de la ruta (igual que el botón del aviso emergente). */
+  protected joinLobby(lobbyId: string): void {
+    this.router.navigateByUrl(`/lobby/${lobbyId}`);
   }
 
   protected sendMessage(): void {
