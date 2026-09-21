@@ -604,6 +604,33 @@ app.get('/api/profile', authenticateToken, async (req: any, res) => {
   }
 });
 
+// Perfil público de otro usuario (stats y avatar, nunca el email). Solo se puede ver el de un
+// amigo, o el propio: no es una forma de curiosear a cualquiera.
+app.get('/api/users/:userId/profile', authenticateToken, async (req: any, res) => {
+  try {
+    const targetId = String(req.params.userId);
+
+    if (targetId !== req.user.userId) {
+      const status = await (Friendship as any).getFriendshipStatus(req.user.userId, targetId);
+      if (status !== 'accepted') {
+        res.status(403).json({ success: false, message: 'Solo puedes ver el perfil de tus amigos' });
+        return;
+      }
+    }
+
+    const user = mongoose.isValidObjectId(targetId) ? await User.findById(targetId) : null;
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      return;
+    }
+
+    res.json({ success: true, data: user.toPublicJSON() });
+  } catch (error) {
+    console.error('Error obteniendo el perfil de un usuario:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
 // Actualizar perfil: nombre de usuario y/o personalización del avatar
 app.put('/api/profile', authenticateToken, async (req: any, res) => {
   try {
@@ -674,6 +701,50 @@ app.get('/api/friends/requests', authenticateToken, async (req: any, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('Error obteniendo solicitudes de amistad:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Solicitudes de amistad pendientes que ha enviado el usuario (aún sin responder)
+app.get('/api/friends/sent', authenticateToken, async (req: any, res) => {
+  try {
+    const sent = await (Friendship as any)
+      .find({ requester: req.user.userId, status: 'pending' })
+      .populate('addressee', 'username');
+    const data = sent
+      .filter((r: any) => r.addressee)
+      .map((r: any) => ({ id: r._id.toString(), to: { id: r.addressee._id.toString(), username: r.addressee.username } }));
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error obteniendo solicitudes enviadas:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Cancelar una solicitud enviada que sigue sin responder. A quien la recibió se le quita de su
+// lista al momento.
+app.delete('/api/friends/requests/:requestId', authenticateToken, async (req: any, res) => {
+  try {
+    const requestId = String(req.params.requestId);
+    if (!mongoose.isValidObjectId(requestId)) {
+      res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+      return;
+    }
+
+    const removed = await (Friendship as any).findOneAndDelete({
+      _id: requestId,
+      requester: req.user.userId,
+      status: 'pending'
+    });
+    if (!removed) {
+      res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+      return;
+    }
+
+    emitToUser(String(removed.addressee), 'friend:request-cancelled', { id: requestId });
+    res.json({ success: true, message: 'Solicitud cancelada' });
+  } catch (error) {
+    console.error('Error cancelando solicitud:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
@@ -1424,8 +1495,15 @@ io.on('connection', (socket) => {
       socket.emit('wordRejected', { message: `La palabra debe empezar con "${gameDoc.prefix}"` });
       return;
     }
-    if (gameDoc.allWords.includes(word)) {
-      socket.emit('wordRejected', { message: 'Ya se ha usado esta palabra' });
+    // Cada jugador puede decir todas las palabras que conozca: solo se le rechaza repetir una
+    // suya. Que el rival ya la haya dicho no le impide usarla (de eso trata el juego).
+    const me = gameDoc.players.find((p: any) => p.userId === authSocket.userId);
+    if (!me) {
+      socket.emit('error', 'No participas en esta partida');
+      return;
+    }
+    if (me.words.includes(word)) {
+      socket.emit('wordRejected', { message: 'Ya has usado esta palabra' });
       return;
     }
 
@@ -1842,6 +1920,7 @@ const CLIENT_ROUTES: RegExp[] = [
   /^\/auth(\/(register|forgot-password|reset-password|check-email|verify-email))?$/,
   /^\/(menu|profile|daily-challenge|gracias|contacto|lobby)$/,
   /^\/lobby\/[^/]+$/,
+  /^\/profile\/[^/]+$/,
   /^\/play\/(matchmaking|game|results)$/,
   /^\/play\/setup\/[^/]+$/,
   /^\/legal\/(privacidad|terminos|aviso-legal|cookies)$/
