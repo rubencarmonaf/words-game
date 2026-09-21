@@ -1,8 +1,51 @@
-<div class="matchmaking-content">
-  <h2>Buscando partida...</h2>
-  <div class="ww-search-track" aria-hidden="true">
-    <span class="ww-search-track-dot"></span>
+@if (match(); as m) {
+  <div class="ww-versus" role="status" aria-live="polite">
+    <div class="ww-versus-face-off">
+      <div class="ww-versus-side ww-versus-side--me">
+        <div class="ww-versus-portrait">
+          <ww-avatar [options]="m.me.avatar" size="xl" />
+          <ww-rank-emblem class="ww-versus-emblem" [elo]="m.me.elo" />
+        </div>
+        <span class="ww-versus-name">{{ m.me.username }}</span>
+        <span class="ww-versus-elo"><strong>{{ m.me.elo }}</strong> ELO</span>
+        <ww-tier-badge [elo]="m.me.elo" />
+      </div>
+
+      <div class="ww-versus-mark" aria-hidden="true">
+        <span class="ww-versus-vs">VS</span>
+      </div>
+
+      <div class="ww-versus-side ww-versus-side--rival">
+        <div class="ww-versus-portrait">
+          <ww-avatar [options]="m.rival.avatar" size="xl" />
+          <ww-rank-emblem class="ww-versus-emblem" [elo]="m.rival.elo" />
+        </div>
+        <span class="ww-versus-name">{{ m.rival.username }}</span>
+        <span class="ww-versus-elo"><strong>{{ m.rival.elo }}</strong> ELO</span>
+        <ww-tier-badge [elo]="m.rival.elo" />
+      </div>
+    </div>
+
+    <div class="ww-versus-stakes">
+      <div class="ww-versus-stake ww-versus-stake--win">
+        <span class="ww-versus-stake-label">Si ganas</span>
+        <strong class="ww-versus-stake-value">{{ formatDelta(m.eloIfWin) }}</strong>
+      </div>
+      <div class="ww-versus-stake ww-versus-stake--lose">
+        <span class="ww-versus-stake-label">Si pierdes</span>
+        <strong class="ww-versus-stake-value">{{ formatDelta(m.eloIfLose) }}</strong>
+      </div>
+    </div>
+
+    <p class="ww-versus-countdown">La partida empieza en {{ countdown() }}</p>
   </div>
-  <p class="ww-search-status" [class.ww-search-status--out]="fadingOut()">{{ phrases[phraseIndex()] }}</p>
-  <button type="button" class="btn btn-danger" (click)="cancel()">Cancelar</button>
-</div>
+} @else {
+  <div class="matchmaking-content">
+    <h2>Buscando partida...</h2>
+    <div class="ww-search-track" aria-hidden="true">
+      <span class="ww-search-track-dot"></span>
+    </div>
+    <p class="ww-search-status" [class.ww-search-status--out]="fadingOut()">{{ phrases[phraseIndex()] }}</p>
+    <button type="button" class="btn btn-danger" (click)="cancel()">Cancelar</button>
+  </div>
+}

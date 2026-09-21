@@ -1,7 +1,7 @@
 import { Service, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, firstValueFrom, of } from 'rxjs';
-import type { ApiResponse, WordValidationResponse } from '@shared-types';
+import type { ApiResponse, AvatarOptions, WordValidationResponse } from '@shared-types';
 import { Auth } from './auth';
 import { Socket } from './socket';
 import { Toast } from '../../shared/services/toast';
@@ -43,9 +43,18 @@ export interface MultiplayerResults {
 
 export type GameResults = SoloResults | MultiplayerResults;
 
+/** ELO de una partida versus, tal y como lo decidió el servidor. */
+export interface EloResult {
+  before: number;
+  after: number;
+  change: number;
+}
+
 export interface GameOutcome {
   results: GameResults;
   won: boolean;
+  /** Solo en versus; null/ausente en el resto de modos. */
+  elo?: EloResult | null;
 }
 
 export interface WordSubmitResult {
@@ -53,8 +62,23 @@ export interface WordSubmitResult {
   message?: string;
 }
 
-interface MatchFoundPayload {
+export interface VersusPlayerInfo {
+  username: string;
+  avatar: AvatarOptions;
+  elo: number;
+}
+
+/** Datos para la pantalla "VS" que se enseña entre encontrar rival y empezar. */
+export interface MatchInfo {
   gameId: string;
+  me: VersusPlayerInfo;
+  rival: VersusPlayerInfo;
+  /** Cambio de ELO propio si ganas / si pierdes (con el recorte en 0 ya aplicado). */
+  eloIfWin: number;
+  eloIfLose: number;
+}
+
+interface MatchFoundPayload extends MatchInfo {
   opponent: string;
 }
 
@@ -78,9 +102,12 @@ interface GameEndPayload {
   winner: string | null;
   finalScores: { username: string; score: number }[];
   won: boolean;
+  elo?: EloResult | null;
 }
 
-const VERSUS_DURATION_SECONDS = 300;
+// Debe coincidir con VERSUS_DURATION_MS en server.ts — igual que el lobby,
+// el servidor decide de verdad cuándo acaba; esto solo pinta el contador.
+const VERSUS_DURATION_SECONDS = 120;
 const LOCAL_MULTIPLAYER_DURATION_SECONDS = 60;
 // Debe coincidir con LOBBY_DURATION_MS en server.ts — el servidor es quien
 // realmente decide cuándo termina, esto solo pinta el contador visible.
@@ -106,6 +133,7 @@ export class Game {
   private readonly outcomeSignal = signal<GameOutcome | null>(null);
   private readonly gameIdSignal = signal<string | null>(null);
   private readonly opponentScoreSignal = signal(0);
+  private readonly matchInfoSignal = signal<MatchInfo | null>(null);
 
   readonly mode = this.modeSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
@@ -116,6 +144,7 @@ export class Game {
   readonly outcome = this.outcomeSignal.asReadonly();
   readonly gameId = this.gameIdSignal.asReadonly();
   readonly opponentScore = this.opponentScoreSignal.asReadonly();
+  readonly matchInfo = this.matchInfoSignal.asReadonly();
 
   private timer: ReturnType<typeof setInterval> | null = null;
   private pendingSubmit: ((result: WordSubmitResult) => void) | null = null;
@@ -123,7 +152,13 @@ export class Game {
   constructor() {
     this.socket.on<MatchFoundPayload>('matchFound').subscribe((data) => {
       this.gameIdSignal.set(data.gameId);
-      this.toast.show(`¡Partida encontrada contra ${data.opponent}!`, 'success');
+      this.matchInfoSignal.set({
+        gameId: data.gameId,
+        me: data.me,
+        rival: data.rival,
+        eloIfWin: data.eloIfWin,
+        eloIfLose: data.eloIfLose,
+      });
     });
 
     this.socket.on<GameStartPayload>('gameStart').subscribe((data) => {
@@ -162,6 +197,7 @@ export class Game {
 
     this.socket.on<GameEndPayload>('gameEnd').subscribe((data) => {
       this.clearTimer();
+      this.matchInfoSignal.set(null);
       this.statusSignal.set('finished');
       this.outcomeSignal.set({
         results: {
@@ -170,6 +206,7 @@ export class Game {
           winner: data.winner,
         },
         won: data.won,
+        elo: data.elo ?? null,
       });
     });
 
@@ -210,6 +247,9 @@ export class Game {
    * matchFound/gameStart. La partida en sí arranca cuando el servidor empareja
    * a dos jugadores — este método solo entra en la cola. */
   startMatchmaking(): Observable<ApiResponse<{ message: string }>> {
+    // Al volver desde resultados con "Nuevo Juego" no pasa por reset(), así
+    // que el rival de la partida anterior seguiría pintándose en la pantalla VS.
+    this.matchInfoSignal.set(null);
     this.modeSignal.set('versus');
     this.statusSignal.set('matchmaking');
     this.socket.connect();
@@ -291,6 +331,7 @@ export class Game {
     this.outcomeSignal.set(null);
     this.gameIdSignal.set(null);
     this.opponentScoreSignal.set(0);
+    this.matchInfoSignal.set(null);
     this.pendingSubmit = null;
   }
 

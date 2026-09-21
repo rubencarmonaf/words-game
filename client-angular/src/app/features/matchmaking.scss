@@ -1,6 +1,9 @@
 :host {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  box-sizing: border-box;
   padding: 48px 20px;
 }
 
@@ -67,5 +70,274 @@ h2 {
   .ww-search-track-dot {
     animation: none;
     left: calc(50% - 7px);
+  }
+}
+
+/* ---------- Pantalla VS (rival encontrado) ---------- */
+.ww-versus {
+  width: 100%;
+  max-width: 1040px;
+  padding: 0 32px 44px;
+  overflow: hidden;
+  background: var(--ww-surface);
+  border: 1px solid var(--ww-line-strong);
+  border-radius: var(--ww-radius);
+  color: var(--ww-text);
+  text-align: center;
+}
+
+.ww-versus-face-off {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  column-gap: 24px;
+}
+
+/* Cada jugador lleva su propio foco: la lámpara y el cono de luz cuelgan de
+   su columna, así siempre quedan centrados sobre el avatar sea cual sea el
+   ancho de la pantalla. La luz es fría (la tinta azulada del sistema), sin
+   color nuevo. */
+.ww-versus-side {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 64px;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    z-index: -1;
+    pointer-events: none;
+    transform: translateX(-50%);
+  }
+  &::before {
+    top: 0;
+    width: 120px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, transparent, rgba(241, 239, 231, 0.85), transparent);
+  }
+  &::after {
+    top: 0;
+    width: min(150%, 560px);
+    height: 130%;
+    background: radial-gradient(ellipse 50% 80% at 50% 0%, rgba(178, 198, 224, 0.2), transparent 75%);
+  }
+}
+.ww-versus-side--me {
+  animation: ww-versus-in-left 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.ww-versus-side--rival {
+  animation: ww-versus-in-right 420ms cubic-bezier(0.23, 1, 0.32, 1) 90ms both;
+}
+
+/* La insignia de rango cuelga del hombro exterior del avatar, como un pin de
+   juego: la del jugador a su izquierda y la del rival a su derecha, para dejar
+   libre el hueco central del VS. */
+.ww-versus-portrait {
+  position: relative;
+  display: inline-flex;
+}
+.ww-versus-emblem {
+  position: absolute;
+  bottom: -14%;
+  width: 58%;
+  --ww-emblem-size: 100%;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.55));
+}
+.ww-versus-side--me .ww-versus-emblem {
+  left: -26%;
+}
+.ww-versus-side--rival .ww-versus-emblem {
+  right: -26%;
+}
+
+.ww-versus-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 6px;
+  font-family: var(--ww-serif);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 3vw, 1.7rem);
+  letter-spacing: -0.02em;
+}
+.ww-versus-elo {
+  color: var(--ww-muted);
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+  font-variant-numeric: tabular-nums;
+
+  strong {
+    color: var(--ww-text);
+    font-weight: 700;
+  }
+}
+
+/* El "VS" con su barra inclinada partida en dos, arriba y abajo. */
+.ww-versus-mark {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: rotate(14deg);
+
+  &::before,
+  &::after {
+    content: '';
+    width: 2px;
+    height: clamp(48px, 9vw, 96px);
+    animation: ww-versus-slash 360ms cubic-bezier(0.23, 1, 0.32, 1) 180ms both;
+  }
+  &::before {
+    transform-origin: bottom;
+    background: linear-gradient(180deg, transparent, var(--ww-text));
+  }
+  &::after {
+    transform-origin: top;
+    background: linear-gradient(0deg, transparent, var(--ww-text));
+  }
+}
+.ww-versus-vs {
+  display: block;
+  font-family: var(--ww-serif);
+  font-weight: 800;
+  font-size: clamp(2.4rem, 8vw, 4.8rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transform: rotate(-14deg);
+  animation: ww-versus-pop 340ms cubic-bezier(0.23, 1, 0.32, 1) 240ms both;
+}
+
+.ww-versus-stakes {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 44px;
+  animation: ww-versus-rise 340ms cubic-bezier(0.23, 1, 0.32, 1) 420ms both;
+}
+.ww-versus-stake {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 170px;
+  padding: 16px 28px;
+  background: var(--ww-bg-2);
+  border: 1px solid var(--ww-line);
+  border-radius: 12px;
+}
+.ww-versus-stake-label {
+  color: var(--ww-muted);
+  font-size: 0.9rem;
+}
+.ww-versus-stake-value {
+  font-family: var(--ww-serif);
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.ww-versus-stake--win .ww-versus-stake-value {
+  color: var(--line-lime);
+}
+.ww-versus-stake--lose .ww-versus-stake-value {
+  color: var(--line-scarlet);
+}
+
+.ww-versus-countdown {
+  margin-top: 28px;
+  color: var(--ww-muted);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ww-versus-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ww-versus-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ww-versus-slash {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes ww-versus-pop {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-14deg) scale(1);
+  }
+}
+@keyframes ww-versus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-versus-side--me,
+  .ww-versus-side--rival,
+  .ww-versus-mark::before,
+  .ww-versus-mark::after,
+  .ww-versus-vs,
+  .ww-versus-stakes {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .ww-versus {
+    padding: 0 14px 28px;
+  }
+  .ww-versus-face-off {
+    column-gap: 8px;
+  }
+  .ww-versus-side {
+    padding-top: 52px;
+  }
+  .ww-versus-stakes {
+    gap: 10px;
+    margin-top: 32px;
+  }
+  .ww-versus-stake {
+    min-width: 0;
+    flex: 1;
+    padding: 12px;
   }
 }

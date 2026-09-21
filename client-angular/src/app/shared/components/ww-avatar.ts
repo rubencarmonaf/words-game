@@ -15,7 +15,7 @@ export class WwAvatar {
   private readonly sanitizer = inject(DomSanitizer);
 
   readonly options = input.required<AvatarOptions>();
-  readonly size = input<'sm' | 'md' | 'lg'>('sm');
+  readonly size = input<'sm' | 'md' | 'lg' | 'xl'>('sm');
 
   // El SVG lo genera DiceBear a partir de opciones ya validadas contra listas
   // cerradas (sanitizeAvatarOptions en el servidor) — nunca contenido de

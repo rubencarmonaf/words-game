@@ -60,6 +60,36 @@
     }
   </div>
 
+  @if (elo(); as e) {
+    <div class="ww-elo ww-elo--{{ eloDirection() }}" [class.ww-elo--shown]="eloShown()" role="status">
+      <div class="ww-elo-rank">
+        @for (rank of [displayedRankName()]; track rank) {
+          <ww-rank-emblem class="ww-elo-emblem" [elo]="displayedElo()" />
+        }
+      </div>
+      <span class="ww-elo-label">ELO</span>
+      <span class="ww-elo-value">{{ displayedElo() }}</span>
+      @if (eloDirection() !== 'flat') {
+        <span class="ww-elo-delta">
+          @if (eloDirection() === 'up') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15" /></svg>
+          } @else if (eloDirection() === 'down') {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+          }
+          {{ eloDeltaLabel() }}
+        </span>
+      }
+      @if (eloNote()) {
+        <span class="ww-elo-note">{{ eloNote() }}</span>
+      }
+      @if (rankChange(); as change) {
+        @if (eloSettled()) {
+          <span class="ww-elo-rankchange ww-elo-rankchange--{{ change.direction }}">{{ change.label }}</span>
+        }
+      }
+    </div>
+  }
+
   <div class="button-group">
     <button type="button" class="btn btn-primary" (click)="playAgain()">Jugar de Nuevo</button>
     <button type="button" class="btn btn-secondary" routerLink="/menu">Nuevo Juego</button>
