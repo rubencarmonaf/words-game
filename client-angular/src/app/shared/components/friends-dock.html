@@ -14,103 +14,168 @@
     <div class="dock-panel">
       <div class="dock-panel-header">
         <span class="dock-panel-title">Amigos</span>
-        <button
-          type="button"
-          class="btn"
-          [class.btn-primary]="!showAddFriend()"
-          [class.btn-secondary]="showAddFriend()"
-          (click)="toggleAddFriend()"
-        >
-          {{ showAddFriend() ? 'Cancelar' : '+ Agregar' }}
-        </button>
-        <button type="button" class="dock-close" (click)="toggle()" aria-label="Contraer">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-        </button>
+        <div class="dock-tools">
+          <button
+            type="button"
+            class="dock-tool dock-tool-search"
+            [class.active]="searchOpen()"
+            (click)="toggleSearch()"
+            aria-label="Buscar entre tus amigos"
+            title="Buscar"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          </button>
+          <button
+            type="button"
+            class="dock-tool dock-tool-requests"
+            [class.active]="view() === 'requests'"
+            (click)="showView('requests')"
+            aria-label="Solicitudes de amistad"
+            title="Solicitudes de amistad"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>
+            @if (pendingRequests().length > 0) {
+              <span class="dock-tool-badge">{{ pendingRequests().length }}</span>
+            }
+          </button>
+          <button
+            type="button"
+            class="dock-tool dock-tool-add"
+            [class.active]="view() === 'add'"
+            (click)="showView('add')"
+            aria-label="Agregar amigo"
+            title="Agregar amigo"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="17" y1="11" x2="23" y2="11" /></svg>
+          </button>
+          <button type="button" class="dock-close" (click)="toggle()" aria-label="Contraer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          </button>
+        </div>
       </div>
 
       <div class="dock-body">
-        @if (showAddFriend()) {
-          <div class="add-friend-form">
-            <input
-              type="text"
-              [formControl]="addFriendControl"
-              placeholder="Nombre de usuario"
-              autocomplete="off"
-              (keydown.enter)="submitAddFriend()"
-            />
-            <button type="button" class="btn btn-secondary" [disabled]="!addFriendControl.value.trim()" (click)="submitAddFriend()">
-              Enviar
-            </button>
-          </div>
-        }
-
-        @if (pendingRequests().length > 0) {
-          <div class="friend-requests">
-            <span class="friend-requests-title">Solicitudes de amistad ({{ pendingRequests().length }})</span>
-            @for (request of pendingRequests(); track request.id) {
-              <div class="friend-request">
-                <span>{{ request.from.username }} quiere ser tu amigo</span>
-                <div class="friend-request-actions">
-                  <button type="button" class="btn btn-primary" (click)="respondToRequest(request.id, true)">Aceptar</button>
-                  <button type="button" class="btn btn-secondary" (click)="respondToRequest(request.id, false)">Rechazar</button>
-                </div>
-              </div>
-            }
-          </div>
-        }
-
-        <div class="friends-list">
-          @if (friendsList().length === 0) {
-            <div class="no-friends">
-              <p>No tienes amigos aún</p>
-              <p>¡Agrega algunos para jugar juntos!</p>
+        @switch (view()) {
+          @case ('add') {
+            <p class="dock-hint">Escribe el nombre de usuario de quien quieras agregar.</p>
+            <div class="add-friend-form">
+              <input
+                type="text"
+                [formControl]="addFriendControl"
+                placeholder="Nombre de usuario"
+                aria-label="Nombre de usuario"
+                autocomplete="off"
+                (keydown.enter)="submitAddFriend()"
+              />
+              <button type="button" class="btn btn-secondary" [disabled]="!addFriendControl.value.trim()" (click)="submitAddFriend()">
+                Enviar
+              </button>
             </div>
-          } @else {
-            @for (friend of friendsList(); track friend.id) {
-              <div class="friend-row" (dblclick)="openChat(friend.id)" title="Doble clic para chatear">
-                <ww-avatar [options]="friend.avatar" size="sm" />
-                @if (confirmRemoveId() === friend.id) {
-                  <span class="friend-row-confirm">
-                    <span class="friend-row-confirm-text">¿Eliminar a {{ friend.username }}?</span>
-                    <span class="friend-row-confirm-actions">
-                      <button type="button" class="btn btn-danger" (click)="removeFriend(friend.id); $event.stopPropagation()">Eliminar</button>
-                      <button type="button" class="btn btn-secondary" (click)="cancelRemove(); $event.stopPropagation()">Cancelar</button>
-                    </span>
+          }
+
+          @case ('requests') {
+            <div class="friend-requests">
+              <span class="friend-requests-title">Solicitudes recibidas ({{ pendingRequests().length }})</span>
+              @for (request of pendingRequests(); track request.id) {
+                <div class="friend-request">
+                  <span>{{ request.from.username }} quiere ser tu amigo</span>
+                  <div class="friend-request-actions">
+                    <button type="button" class="btn btn-primary" (click)="respondToRequest(request.id, true)">Aceptar</button>
+                    <button type="button" class="btn btn-secondary" (click)="respondToRequest(request.id, false)">Rechazar</button>
+                  </div>
+                </div>
+              } @empty {
+                <p class="dock-empty">No tienes solicitudes pendientes.</p>
+              }
+            </div>
+
+            <div class="friend-requests friend-requests--sent">
+              <span class="friend-requests-title">Solicitudes enviadas ({{ sentRequests().length }})</span>
+              @for (sent of sentRequests(); track sent.id) {
+                <div class="friend-request friend-request--sent">
+                  <span class="friend-request-sent-text">
+                    <span class="friend-request-sent-name">{{ sent.to.username }}</span>
+                    <span class="friend-request-sent-status">Pendiente de respuesta</span>
                   </span>
-                } @else {
-                <span class="friend-row-info">
-                  <span class="friend-row-name">
-                    {{ friend.username }}
-                    @if (unreadCounts()[friend.id]; as count) {
-                      <span class="board-badge board-badge--amber">{{ count }}</span>
-                    }
-                  </span>
-                  <span class="friend-row-status" [class.online]="friend.online" [class.offline]="!friend.online">
-                    <span class="status-dot" [class.online]="friend.online" [class.offline]="!friend.online"></span>
-                    {{ friend.online ? 'En línea' : 'Desconectado' }}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  class="friend-row-chat"
-                  (click)="openChat(friend.id); $event.stopPropagation()"
-                  [attr.aria-label]="'Chatear con ' + friend.username"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-                </button>
-                <button
-                  type="button"
-                  class="friend-row-chat friend-row-remove"
-                  (click)="askRemove(friend.id); $event.stopPropagation()"
-                  [attr.aria-label]="'Eliminar a ' + friend.username + ' de tus amigos'"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="17" y1="11" x2="23" y2="11" /></svg>
-                </button>
-                }
+                  <button type="button" class="btn btn-secondary" (click)="cancelSent(sent.id)">Cancelar</button>
+                </div>
+              } @empty {
+                <p class="dock-empty">No has enviado ninguna solicitud.</p>
+              }
+            </div>
+          }
+
+          @default {
+            @if (searchOpen()) {
+              <div class="friend-search">
+                <input
+                  type="text"
+                  [formControl]="searchControl"
+                  placeholder="Buscar amigos"
+                  aria-label="Buscar entre tus amigos"
+                  autocomplete="off"
+                />
               </div>
             }
+
+            <div class="friends-list">
+              @if (friendsList().length === 0) {
+                <div class="no-friends">
+                  <p>No tienes amigos aún</p>
+                  <p>¡Agrega algunos para jugar juntos!</p>
+                </div>
+              } @else if (visibleFriends().length === 0) {
+                <div class="no-friends">
+                  <p>Ningún amigo coincide con la búsqueda</p>
+                </div>
+              } @else {
+                @for (friend of visibleFriends(); track friend.id) {
+                  <div class="friend-row" (dblclick)="openChat(friend.id)" title="Doble clic para chatear">
+                    <ww-avatar [options]="friend.avatar" size="sm" />
+                    @if (confirmRemoveId() === friend.id) {
+                      <span class="friend-row-confirm">
+                        <span class="friend-row-confirm-text">¿Eliminar a {{ friend.username }}?</span>
+                        <span class="friend-row-confirm-actions">
+                          <button type="button" class="btn btn-danger" (click)="removeFriend(friend.id); $event.stopPropagation()">Eliminar</button>
+                          <button type="button" class="btn btn-secondary" (click)="cancelRemove(); $event.stopPropagation()">Cancelar</button>
+                        </span>
+                      </span>
+                    } @else {
+                      <span class="friend-row-info">
+                        <span class="friend-row-name">
+                          {{ friend.username }}
+                          @if (unreadCounts()[friend.id]; as count) {
+                            <span class="board-badge board-badge--amber">{{ count }}</span>
+                          }
+                        </span>
+                        <span class="friend-row-status" [class.online]="friend.online" [class.offline]="!friend.online">
+                          <span class="status-dot" [class.online]="friend.online" [class.offline]="!friend.online"></span>
+                          {{ friend.online ? 'En línea' : 'Desconectado' }}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        class="friend-row-chat"
+                        (click)="openChat(friend.id); $event.stopPropagation()"
+                        [attr.aria-label]="'Chatear con ' + friend.username"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="friend-row-chat friend-row-remove"
+                        (click)="askRemove(friend.id); $event.stopPropagation()"
+                        [attr.aria-label]="'Eliminar a ' + friend.username + ' de tus amigos'"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="17" y1="11" x2="23" y2="11" /></svg>
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </div>
           }
-        </div>
+        }
       </div>
     </div>
   }
