@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { SiteFooter } from '../shared/components/site-footer';
 
@@ -13,6 +14,7 @@ import { SiteFooter } from '../shared/components/site-footer';
 })
 export class Landing implements AfterViewInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private observer: IntersectionObserver | null = null;
 
   protected scrollToHowItWorks(event: Event): void {
@@ -22,6 +24,9 @@ export class Landing implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    // El "revelar al hacer scroll" solo tiene sentido en el navegador; al
+    // prerenderizar, el contenido queda en el HTML y el observer lo revela luego.
+    if (!this.isBrowser) return;
     const root: HTMLElement = this.elementRef.nativeElement;
     const targets = root.querySelectorAll<HTMLElement>('[data-reveal]');
     if (!targets.length) return;

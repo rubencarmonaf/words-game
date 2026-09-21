@@ -1,4 +1,5 @@
-import { Service, computed, inject, signal } from '@angular/core';
+import { PLATFORM_ID, Service, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import type {
@@ -12,9 +13,11 @@ const TOKEN_KEY = 'authToken';
 @Service()
 export class Auth {
   private readonly http = inject(HttpClient);
+  // Al prerenderizar (Node) no hay localStorage ni sesión: se trata como visitante.
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   private readonly tokenSignal = signal<string | null>(
-    localStorage.getItem(TOKEN_KEY),
+    this.isBrowser ? localStorage.getItem(TOKEN_KEY) : null,
   );
   private readonly userSignal = signal<IUserPublic | null>(null);
 
@@ -105,13 +108,13 @@ export class Auth {
   logout(): void {
     this.tokenSignal.set(null);
     this.userSignal.set(null);
-    localStorage.removeItem(TOKEN_KEY);
+    if (this.isBrowser) localStorage.removeItem(TOKEN_KEY);
   }
 
   private applyAuthResponse(result: ApiResponse<AuthResponse>): void {
     if (result.success && result.data) {
       this.tokenSignal.set(result.data.token);
-      localStorage.setItem(TOKEN_KEY, result.data.token);
+      if (this.isBrowser) localStorage.setItem(TOKEN_KEY, result.data.token);
       this.userSignal.set(result.data.user);
     }
   }

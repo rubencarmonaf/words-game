@@ -6,6 +6,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
 
 // Import models
 import User, { eloChangeFor } from './models/User';
@@ -33,6 +35,13 @@ import {
 } from './types';
 
 dotenv.config();
+
+// Sin esto, en producción se firmarían los tokens con la clave de ejemplo del
+// código (`your-secret-key`) y cualquiera podría fabricar una sesión válida.
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET es obligatorio en producción');
+  process.exit(1);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -1362,6 +1371,118 @@ setInterval(() => {
   }
 }, 2000); // Check every 2 seconds
 
+// Web de Angular compilada: en producción este mismo servidor la sirve, así que
+// el cliente y la API comparten origen y las rutas relativas (/api, /socket.io)
+// funcionan sin configurar URLs ni CORS. En desarrollo no existe la carpeta
+// (el cliente corre con ng serve y su proxy), y esto simplemente no se activa.
+// Va después de todas las rutas de la API para no taparlas.
+const CLIENT_DIST = path.join(__dirname, '..', 'client-angular', 'dist', 'client-angular', 'browser');
+const CLIENT_BUILT = fs.existsSync(path.join(CLIENT_DIST, 'index.html'));
+
+// Páginas públicas que Angular prerenderiza al compilar (ver app.routes.server.ts):
+// son las que entran en el sitemap y las que se sirven ya con su contenido en el HTML.
+const PUBLIC_PAGES = ['/', '/legal/privacidad', '/legal/terminos', '/legal/aviso-legal', '/legal/cookies', '/contacto'];
+
+// Rutas que existen en el cliente (app.routes.ts). Cualquier otra ruta responde 404
+// de verdad, en vez de un 200 con la pantalla de "no encontrada" (un "soft 404" que
+// los buscadores penalizan). Hay que mantenerla en sincronía con las rutas del cliente.
+const CLIENT_ROUTES: RegExp[] = [
+  /^\/auth(\/(register|forgot-password|reset-password))?$/,
+  /^\/(menu|profile|daily-challenge|gracias|contacto|lobby)$/,
+  /^\/lobby\/[^/]+$/,
+  /^\/play\/(matchmaking|game|results)$/,
+  /^\/play\/setup\/[^/]+$/,
+  /^\/legal\/(privacidad|terminos|aviso-legal|cookies)$/
+];
+
+// Rutas privadas o sin valor para un buscador: se piden fuera del rastreo.
+const ROBOTS_DISALLOW = ['/api/', '/auth', '/menu', '/play/', '/lobby', '/daily-challenge', '/profile', '/gracias'];
+
+if (CLIENT_BUILT) {
+  // Detrás del proxy de Render la petición llega por HTTP: sin esto req.protocol
+  // sería siempre "http" y las URLs absolutas saldrían mal.
+  app.set('trust proxy', 1);
+
+  const CSR_SHELL = fs.existsSync(path.join(CLIENT_DIST, 'index.csr.html')) ? 'index.csr.html' : 'index.html';
+
+  // Dominio público, para las URLs absolutas de canonical / Open Graph / sitemap.
+  // En producción manda CLIENT_URL; si no, el host de la propia petición.
+  const siteUrl = (req: express.Request): string =>
+    ((process.env.NODE_ENV === 'production' && process.env.CLIENT_URL) || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+
+  // El HTML compilado lleva __SITE_URL__ donde va el dominio; se lee una vez y se
+  // sustituye en cada respuesta.
+  const pageCache = new Map<string, string>();
+  const sendPage = (req: express.Request, res: express.Response, file: string, status = 200): void => {
+    let html = pageCache.get(file);
+    if (html === undefined) {
+      html = fs.readFileSync(path.join(CLIENT_DIST, file), 'utf8');
+      pageCache.set(file, html);
+    }
+    res
+      .status(status)
+      .set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
+      .send(html.split('__SITE_URL__').join(siteUrl(req)));
+  };
+
+  const prerendered = new Map<string, string>();
+  for (const page of PUBLIC_PAGES) {
+    const file = page === '/' ? 'index.html' : `${page.slice(1)}/index.html`;
+    if (fs.existsSync(path.join(CLIENT_DIST, file))) prerendered.set(page, file);
+  }
+
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain').send(
+      ['User-agent: *', 'Allow: /', ...ROBOTS_DISALLOW.map((p) => `Disallow: ${p}`), '', `Sitemap: ${siteUrl(req)}/sitemap.xml`, ''].join('\n')
+    );
+  });
+
+  app.get('/sitemap.xml', (req, res) => {
+    const base = siteUrl(req);
+    const urls = PUBLIC_PAGES.map((p) => `  <url><loc>${base}${p}</loc></url>`).join('\n');
+    res.type('application/xml').send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
+    );
+  });
+
+  // Los .html crudos (con el marcador sin sustituir) no se sirven nunca directamente.
+  app.get(/\.html$/, (req, res) => sendPage(req, res, CSR_SHELL, 404));
+
+  app.use(
+    express.static(CLIENT_DIST, {
+      index: false,
+      redirect: false,
+      // Angular nombra los js/css con un hash de contenido: si cambian, cambia el
+      // nombre, así que pueden cachearse para siempre. El resto (imágenes) se
+      // revalida para que un despliegue nuevo se vea al momento.
+      setHeaders: (res, filePath) => {
+        if (/-[A-Za-z0-9_-]{8}\.(js|css)$/.test(filePath)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    })
+  );
+
+  // Páginas de la web: las públicas ya prerenderizadas, las privadas con el cascarón
+  // que se renderiza en el navegador, y 404 real para lo que no existe. La API y el
+  // socket quedan fuera.
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
+      next();
+      return;
+    }
+    const route = req.path.length > 1 ? req.path.replace(/\/+$/, '') : req.path;
+    const page = prerendered.get(route);
+    if (page) {
+      sendPage(req, res, page);
+    } else if (CLIENT_ROUTES.some((pattern) => pattern.test(route))) {
+      sendPage(req, res, CSR_SHELL);
+    } else {
+      sendPage(req, res, CSR_SHELL, 404);
+    }
+  });
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 
@@ -1370,7 +1491,9 @@ const startServer = async (): Promise<void> => {
   
   server.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-    console.log(`📱 Cliente disponible en http://localhost:3001`);
+    console.log(CLIENT_BUILT
+      ? `📱 Cliente disponible en http://localhost:${PORT}`
+      : '📱 Sin cliente compilado: en desarrollo usa "npm run dev:client"');
   });
 };
 

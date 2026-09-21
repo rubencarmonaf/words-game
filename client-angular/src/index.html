@@ -1,11 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>ClientAngular</title>
+  <title>WordWars · Juego de palabras online con validación RAE</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Forma palabras a partir de un prefijo, compite en tiempo real, sube de ELO y supera el reto diario. Validado con el diccionario de la RAE.">
+  <meta name="theme-color" content="#0a1628">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- __SITE_URL__ lo sustituye el servidor por el dominio público al servir el HTML -->
+  <link rel="canonical" href="__SITE_URL__/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="WordWars">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:title" content="WordWars · Juego de palabras online con validación RAE">
+  <meta property="og:description" content="Forma palabras a partir de un prefijo, compite en tiempo real, sube de ELO y supera el reto diario. Validado con el diccionario de la RAE.">
+  <meta property="og:url" content="__SITE_URL__/">
+  <meta property="og:image" content="__SITE_URL__/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="WordWars: el logo y las seis insignias de rango, de Aprendiz a Mítico">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="WordWars · Juego de palabras online con validación RAE">
+  <meta name="twitter:description" content="Forma palabras a partir de un prefijo, compite en tiempo real, sube de ELO y supera el reto diario. Validado con el diccionario de la RAE.">
+  <meta name="twitter:image" content="__SITE_URL__/assets/og-image.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "WordWars",
+    "url": "__SITE_URL__/",
+    "description": "Juego de palabras online: forma palabras a partir de un prefijo, compite en tiempo real y sube de ELO. Validado con el diccionario de la RAE.",
+    "inLanguage": "es",
+    "genre": "Juego de palabras",
+    "gamePlatform": "Navegador web",
+    "applicationCategory": "Game",
+    "playMode": ["SinglePlayer", "MultiPlayer"],
+    "image": "__SITE_URL__/assets/og-image.png"
+  }
+  </script>
 </head>
 <body>
   <ww-root></ww-root>
