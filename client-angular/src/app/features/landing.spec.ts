@@ -31,6 +31,47 @@ describe('Landing', () => {
     expect(buttons).toContain('Crear cuenta gratis');
   });
 
+  describe('mobile menu', () => {
+    const nav = (): HTMLElement => fixture.nativeElement.querySelector('.ww-nav');
+    const toggle = (): HTMLButtonElement => fixture.nativeElement.querySelector('.ww-nav-toggle');
+
+    it('starts closed and toggles with the hamburger button', () => {
+      fixture.detectChanges();
+      expect(nav().classList.contains('ww-nav--open')).toBe(false);
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+
+      toggle().click();
+      fixture.detectChanges();
+      expect(nav().classList.contains('ww-nav--open')).toBe(true);
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(toggle().getAttribute('aria-label')).toBe('Cerrar menú');
+
+      toggle().click();
+      fixture.detectChanges();
+      expect(nav().classList.contains('ww-nav--open')).toBe(false);
+    });
+
+    it('closes with Escape', () => {
+      fixture.detectChanges();
+      toggle().click();
+      fixture.detectChanges();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+      expect(nav().classList.contains('ww-nav--open')).toBe(false);
+    });
+
+    it('closes after choosing a section link', () => {
+      fixture.detectChanges();
+      toggle().click();
+      fixture.detectChanges();
+
+      (fixture.nativeElement.querySelector('.ww-nav-links a[href="#modos"]') as HTMLAnchorElement).click();
+      fixture.detectChanges();
+      expect(nav().classList.contains('ww-nav--open')).toBe(false);
+    });
+  });
+
   it('scrollToHowItWorks() prevents the default anchor jump and scrolls smoothly to #como', () => {
     fixture.detectChanges();
     const como = fixture.nativeElement.querySelector('#como') as HTMLElement;
