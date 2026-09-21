@@ -41,8 +41,18 @@ describe('FriendsDock', () => {
       data: [{ id: 'f1', username: 'Ana', elo: 1000, online: true, avatar: DEFAULT_AVATAR }],
     });
     httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [] });
     httpMock.expectOne('/api/messages/unread-counts').flush({ success: true, data: {} });
   }
+
+  /** Un friend:request re-consulta la lista de amigos: se responde con la lista de siempre. */
+  function flushFriendsRefetch(): void {
+    for (const pending of httpMock.match('/api/friends')) {
+      pending.flush({ success: true, data: [{ id: 'f1', username: 'Ana', elo: 1000, online: true, avatar: DEFAULT_AVATAR }] });
+    }
+  }
+
+  const tool = (name: string): HTMLButtonElement => fixture.nativeElement.querySelector(`.dock-tool-${name}`);
 
   afterEach(() => {
     localStorage.removeItem('authToken');
@@ -92,6 +102,7 @@ describe('FriendsDock', () => {
   it('counts a new friend request in the badge of the collapsed button', async () => {
     await setup();
     socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+    flushFriendsRefetch();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.dock-badge')?.textContent?.trim()).toBe('1');
@@ -100,6 +111,7 @@ describe('FriendsDock', () => {
   it('expands and lists the request when the notice asks to see it', async () => {
     await setup();
     socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+    flushFriendsRefetch();
     TestBed.inject(Friends).revealRequestsTick.update((n) => n + 1);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -155,6 +167,125 @@ describe('FriendsDock', () => {
 
     expect(fixture.nativeElement.querySelector('.friend-row')).toBeNull();
     expect(TestBed.inject(Messages).activeFriendId()).toBeNull();
+  });
+
+  describe('steam-style header', () => {
+    async function open(): Promise<void> {
+      await setup();
+      fixture.componentInstance['expanded'].set(true);
+      fixture.detectChanges();
+    }
+
+    it('has search, requests and add-friend icons in the header', async () => {
+      await open();
+      expect(tool('search')).toBeTruthy();
+      expect(tool('requests')).toBeTruthy();
+      expect(tool('add')).toBeTruthy();
+    });
+
+    it('the requests icon carries a count of pending received requests', async () => {
+      await open();
+      expect(tool('requests').querySelector('.dock-tool-badge')).toBeNull();
+
+      socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+      flushFriendsRefetch();
+      fixture.detectChanges();
+
+      expect(tool('requests').querySelector('.dock-tool-badge')?.textContent?.trim()).toBe('1');
+    });
+
+    it('the requests view lists what I received and what I sent, and clicking the icon again goes back', async () => {
+      await open();
+      socket.push('friend:request', { id: 'r1', from: { id: 'u2', username: 'Beto' } });
+      flushFriendsRefetch();
+      TestBed.inject(Friends).refreshSent().subscribe();
+      httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [{ id: 's1', to: { id: 'u3', username: 'Caro' } }] });
+
+      tool('requests').click();
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement.querySelector('.dock-body') as HTMLElement).textContent ?? '';
+      expect(text).toContain('Solicitudes recibidas (1)');
+      expect(text).toContain('Beto quiere ser tu amigo');
+      expect(text).toContain('Solicitudes enviadas (1)');
+      expect(text).toContain('Caro');
+      expect(fixture.nativeElement.querySelector('.friend-row')).toBeNull();
+
+      tool('requests').click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.friend-row')).toBeTruthy();
+    });
+
+    it('cancelling a sent request calls the server and removes it from the list', async () => {
+      await open();
+      TestBed.inject(Friends).refreshSent().subscribe();
+      httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [{ id: 's1', to: { id: 'u3', username: 'Caro' } }] });
+      tool('requests').click();
+      fixture.detectChanges();
+
+      (fixture.nativeElement.querySelector('.friend-request--sent .btn') as HTMLButtonElement).click();
+      const req = httpMock.expectOne('/api/friends/requests/s1');
+      expect(req.request.method).toBe('DELETE');
+      req.flush({ success: true, message: 'Solicitud cancelada' });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.friend-request--sent')).toBeNull();
+    });
+
+    it('sending a request from the add view moves to the requests view so it shows as sent', async () => {
+      await open();
+      tool('add').click();
+      fixture.detectChanges();
+
+      fixture.componentInstance['addFriendControl'].setValue('Caro');
+      fixture.componentInstance['submitAddFriend']();
+      httpMock.expectOne('/api/friends/request').flush({ success: true, message: 'Solicitud enviada' });
+      httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [{ id: 's1', to: { id: 'u3', username: 'Caro' } }] });
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance['view']()).toBe('requests');
+      expect((fixture.nativeElement.querySelector('.dock-body') as HTMLElement).textContent).toContain('Caro');
+    });
+
+    it('the search box filters the friends by name', async () => {
+      await open();
+      TestBed.inject(Friends).refresh().subscribe();
+      httpMock.expectOne('/api/friends').flush({
+        success: true,
+        data: [
+          { id: 'f1', username: 'Ana', elo: 1000, online: true, avatar: DEFAULT_AVATAR },
+          { id: 'f2', username: 'Beto', elo: 900, online: false, avatar: DEFAULT_AVATAR },
+        ],
+      });
+      tool('search').click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.friend-row').length).toBe(2);
+
+      fixture.componentInstance['searchControl'].setValue('be');
+      fixture.detectChanges();
+
+      const rows = fixture.nativeElement.querySelectorAll('.friend-row');
+      expect(rows.length).toBe(1);
+      expect(rows[0].textContent).toContain('Beto');
+
+      fixture.componentInstance['searchControl'].setValue('zzz');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.no-friends')?.textContent).toContain('Ningún amigo coincide');
+    });
+
+    it('closes the open chat when that friend disappears from the list (they removed you)', async () => {
+      await open();
+      TestBed.inject(Messages).openThread('f1');
+      httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+      fixture.detectChanges();
+      expect(TestBed.inject(Messages).activeFriendId()).toBe('f1');
+
+      socket.push('friend:removed', { id: 'f1' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(TestBed.inject(Messages).activeFriendId()).toBeNull();
+    });
   });
 
   it('marks the dock as chat-open while a conversation is active (it hides on mobile)', async () => {

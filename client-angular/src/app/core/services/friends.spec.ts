@@ -88,8 +88,9 @@ describe('Friends', () => {
       success: true,
       data: [{ id: 'u1', username: 'Ana', elo: 1000, online: true }],
     });
-    // La reconexión también recarga las solicitudes pendientes.
+    // La reconexión también recarga las solicitudes pendientes, recibidas y enviadas.
     httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [] });
 
     expect(service.friends()).toEqual([{ id: 'u1', username: 'Ana', elo: 1000, online: true }]);
   });
@@ -165,6 +166,7 @@ describe('Friends', () => {
 
     socket.push('friend:request', request);
     socket.push('friend:request', request);
+    for (const pending of httpMock.match('/api/friends')) pending.flush({ success: true, data: [] });
 
     expect(service.requests()).toEqual([request]);
     const notice = TestBed.inject(Toast).messages()[0];
@@ -175,10 +177,11 @@ describe('Friends', () => {
     expect(service.revealRequestsTick()).toBe(1);
   });
 
-  it('friend:accepted reloads the friends list and says who accepted', () => {
+  it('friend:accepted reloads the friends and the sent requests, and says who accepted', () => {
     socket.push('friend:accepted', { id: 'u4', username: 'Eva' });
 
     httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [] });
     expect(TestBed.inject(Toast).messages()[0].text).toContain('Eva');
   });
 
@@ -187,5 +190,85 @@ describe('Friends', () => {
 
     httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
     httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [] });
+  });
+
+  it('a request from someone still listed as a friend removes them from the list (a missed friend:removed)', () => {
+    service.refresh().subscribe();
+    httpMock.expectOne('/api/friends').flush({
+      success: true,
+      data: [{ id: 'u9', username: 'Dani', elo: 1000, online: true }],
+    });
+
+    socket.push('friend:request', { id: 'r9', from: { id: 'u9', username: 'Dani' } });
+
+    expect(service.friends()).toEqual([]);
+    expect(service.requests().map((r) => r.id)).toEqual(['r9']);
+    // ...y se confirma con el servidor
+    httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
+  });
+
+  it('coming back to the tab reloads friends, requests and sent requests', () => {
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    httpMock.expectOne('/api/friends').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/requests').flush({ success: true, data: [] });
+    httpMock.expectOne('/api/friends/sent').flush({ success: true, data: [] });
+  });
+
+  it('refreshSent() lists the requests I sent that are still pending', () => {
+    service.refreshSent().subscribe();
+    httpMock.expectOne('/api/friends/sent').flush({
+      success: true,
+      data: [{ id: 's1', to: { id: 'u2', username: 'Beto' } }],
+    });
+
+    expect(service.sentRequests()).toEqual([{ id: 's1', to: { id: 'u2', username: 'Beto' } }]);
+  });
+
+  it('sending a request reloads the sent list so it shows up straight away', () => {
+    service.sendRequest('Beto').subscribe();
+    httpMock.expectOne('/api/friends/request').flush({ success: true, message: 'Solicitud enviada' });
+
+    httpMock.expectOne('/api/friends/sent').flush({
+      success: true,
+      data: [{ id: 's1', to: { id: 'u2', username: 'Beto' } }],
+    });
+    expect(service.sentRequests().map((r) => r.id)).toEqual(['s1']);
+  });
+
+  it('cancelRequest() deletes it on the server and drops it from the sent list', () => {
+    service.refreshSent().subscribe();
+    httpMock.expectOne('/api/friends/sent').flush({
+      success: true,
+      data: [
+        { id: 's1', to: { id: 'u2', username: 'Beto' } },
+        { id: 's2', to: { id: 'u3', username: 'Caro' } },
+      ],
+    });
+
+    service.cancelRequest('s1').subscribe();
+    const req = httpMock.expectOne('/api/friends/requests/s1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ success: true, message: 'Solicitud cancelada' });
+
+    expect(service.sentRequests().map((r) => r.id)).toEqual(['s2']);
+  });
+
+  it('friend:request-cancelled removes the request from my received list live', () => {
+    service.refreshRequests().subscribe();
+    httpMock.expectOne('/api/friends/requests').flush({
+      success: true,
+      data: [
+        { id: 'r1', from: { id: 'u5', username: 'Eva' } },
+        { id: 'r2', from: { id: 'u6', username: 'Fer' } },
+      ],
+    });
+
+    socket.push('friend:request-cancelled', { id: 'r1' });
+
+    expect(service.requests().map((r) => r.id)).toEqual(['r2']);
   });
 });

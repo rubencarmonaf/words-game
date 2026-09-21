@@ -1,4 +1,4 @@
-import { Service, inject, signal } from '@angular/core';
+import { DestroyRef, Service, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, of, tap } from 'rxjs';
 import type { ApiResponse, AvatarOptions } from '@shared-types';
@@ -18,6 +18,12 @@ export interface FriendRequest {
   from: { id: string; username: string };
 }
 
+/** Solicitud que envié yo y sigue sin respuesta. */
+export interface SentRequest {
+  id: string;
+  to: { id: string; username: string };
+}
+
 interface PresencePayload {
   userId: string;
 }
@@ -35,8 +41,10 @@ export class Friends {
 
   private readonly friendsSignal = signal<Friend[]>([]);
   private readonly requestsSignal = signal<FriendRequest[]>([]);
+  private readonly sentSignal = signal<SentRequest[]>([]);
   readonly friends = this.friendsSignal.asReadonly();
   readonly requests = this.requestsSignal.asReadonly();
+  readonly sentRequests = this.sentSignal.asReadonly();
   /** Sube cada vez que algo pide ver las solicitudes (p. ej. el botón "Ver" del aviso):
    * el widget de amigos se abre al cambiar. */
   readonly revealRequestsTick = signal(0);
@@ -52,14 +60,26 @@ export class Friends {
     // dispara tanto en la conexión inicial como en cada reconexión automática
     // de socket.io-client, así que reconsultar aquí autocorrige la vista sin
     // que el usuario tenga que recargar la página a mano.
-    this.socket.on<void>('connect').subscribe(() => {
-      this.refresh().subscribe();
-      this.refreshRequests().subscribe();
-    });
+    this.socket.on<void>('connect').subscribe(() => this.refreshAll());
+
+    // Igual al volver a la pestaña: en móvil el navegador congela la página y los avisos en
+    // vivo que llegaron mientras tanto (que te eliminaran, una solicitud…) se pierden.
+    if (typeof document !== 'undefined') {
+      const onVisible = (): void => {
+        if (document.visibilityState === 'visible') this.refreshAll();
+      };
+      document.addEventListener('visibilitychange', onVisible);
+      inject(DestroyRef).onDestroy(() => document.removeEventListener('visibilitychange', onVisible));
+    }
 
     // Una solicitud nueva aparece al momento y se queda en la lista hasta que se
     // acepte o rechace (también queda guardada en el servidor, así que sobrevive a recargar).
     this.socket.on<FriendRequest>('friend:request').subscribe((request) => {
+      // Si alguien me manda una solicitud es que ya no somos amigos (el servidor no lo permite
+      // si lo somos): si por un aviso perdido aún sale en mi lista, se quita y se re-consulta,
+      // para no ver a la vez "solicitud pendiente" y "ya es tu amigo".
+      this.dropFriend(request.from.id);
+      this.refresh().subscribe();
       this.requestsSignal.update((list) => (list.some((r) => r.id === request.id) ? list : [...list, request]));
       this.toast.show(`${request.from.username} te ha enviado una solicitud de amistad`, 'info', {
         label: 'Ver',
@@ -70,8 +90,14 @@ export class Friends {
     // Te eliminó: desaparece de tu lista al momento (sin aviso, igual que al revés).
     this.socket.on<{ id: string }>('friend:removed').subscribe(({ id }) => this.dropFriend(id));
 
+    // La persona que la envió la canceló: desaparece de mis solicitudes al momento.
+    this.socket.on<{ id: string }>('friend:request-cancelled').subscribe(({ id }) => {
+      this.requestsSignal.update((list) => list.filter((r) => r.id !== id));
+    });
+
     this.socket.on<{ id: string; username: string }>('friend:accepted').subscribe((friend) => {
       this.refresh().subscribe();
+      this.refreshSent().subscribe();
       this.toast.show(`${friend.username} ha aceptado tu solicitud de amistad`, 'success');
     });
   }
@@ -94,10 +120,38 @@ export class Friends {
     );
   }
 
+  refreshSent(): Observable<ApiResponse<SentRequest[]>> {
+    return this.http.get<ApiResponse<SentRequest[]>>('/api/friends/sent').pipe(
+      tap((result) => {
+        if (result.success && result.data) this.sentSignal.set(result.data);
+      }),
+      catchError((err: HttpErrorResponse) => of(this.toApiError<SentRequest[]>(err))),
+    );
+  }
+
   sendRequest(friendUsername: string): Observable<ApiResponse<{ message: string }>> {
-    return this.http
-      .post<ApiResponse<{ message: string }>>('/api/friends/request', { friendUsername })
-      .pipe(catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))));
+    return this.http.post<ApiResponse<{ message: string }>>('/api/friends/request', { friendUsername }).pipe(
+      tap((result) => {
+        if (result.success) this.refreshSent().subscribe();
+      }),
+      catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))),
+    );
+  }
+
+  /** Cancela una solicitud que envié y aún no me han respondido. */
+  cancelRequest(requestId: string): Observable<ApiResponse<{ message: string }>> {
+    return this.http.delete<ApiResponse<{ message: string }>>(`/api/friends/requests/${requestId}`).pipe(
+      tap((result) => {
+        if (result.success) this.sentSignal.update((list) => list.filter((r) => r.id !== requestId));
+      }),
+      catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))),
+    );
+  }
+
+  private refreshAll(): void {
+    this.refresh().subscribe();
+    this.refreshRequests().subscribe();
+    this.refreshSent().subscribe();
   }
 
   respond(requestId: string, accept: boolean): Observable<ApiResponse<{ message: string }>> {

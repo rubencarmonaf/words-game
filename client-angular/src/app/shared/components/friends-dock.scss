@@ -83,9 +83,90 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dock-panel-header .btn {
-  padding: 7px 12px;
-  font-size: 0.76rem;
+.dock-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.dock-tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--ww-muted);
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+  &:hover {
+    background: var(--ww-bg-2);
+    color: var(--ww-text);
+  }
+  &.active {
+    background: var(--ww-bg-2);
+    color: var(--ww-accent);
+  }
+  &:active {
+    transform: scale(0.94);
+  }
+}
+.dock-tool-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ww-accent);
+  color: var(--ww-accent-ink);
+  border-radius: 999px;
+  font-family: var(--ww-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dock-hint,
+.dock-empty {
+  margin: 0 0 12px;
+  color: var(--ww-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.dock-empty {
+  margin: 4px 0 0;
+}
+.friend-search {
+  margin-bottom: 12px;
+
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--ww-surface);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: 8px;
+    color: var(--ww-text);
+    font-size: 0.86rem;
+  }
+  input::placeholder {
+    color: var(--ww-faint);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--ww-accent);
+  }
 }
 .dock-close {
   display: inline-flex;
@@ -163,6 +244,35 @@
   border: 1px solid var(--ww-line);
   border-radius: 10px;
   font-size: 0.84rem;
+}
+.friend-request--sent {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  .btn {
+    padding: 6px 12px;
+    font-size: 0.74rem;
+    flex-shrink: 0;
+  }
+}
+.friend-request-sent-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.friend-request-sent-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.friend-request-sent-status {
+  color: var(--ww-muted);
+  font-size: 0.74rem;
+}
+.friend-requests--sent {
+  margin-top: 6px;
 }
 .friend-request-actions {
   display: flex;
