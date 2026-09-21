@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { DEFAULT_AVATAR } from '@shared-types';
 import { Game } from './game';
 import { Socket } from './socket';
 import { FakeSocket } from './socket.testing';
@@ -180,14 +181,55 @@ describe('Game', () => {
       expect(socket.connected).toBe(true);
     });
 
-    it('matchFound sets the gameId and shows a toast', () => {
+    it('matchFound sets the gameId and exposes the VS-screen info (rival, ELO at stake)', () => {
       service.startMatchmaking().subscribe();
       httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'Buscando partida...' });
 
-      socket.push('matchFound', { gameId: 'g1', opponent: 'Rival' });
+      const me = { username: 'Yo', avatar: DEFAULT_AVATAR, elo: 1200 };
+      const rival = { username: 'Rival', avatar: DEFAULT_AVATAR, elo: 0 };
+      socket.push('matchFound', { gameId: 'g1', opponent: 'Rival', me, rival, eloIfWin: 5, eloIfLose: -60 });
 
       expect(service.gameId()).toBe('g1');
-      expect(toast.messages()[0]?.text).toBe('¡Partida encontrada contra Rival!');
+      expect(service.matchInfo()).toEqual({ gameId: 'g1', me, rival, eloIfWin: 5, eloIfLose: -60 });
+    });
+
+    it('the previous opponent does not linger: gameEnd and a new search both clear matchInfo', () => {
+      const info = {
+        gameId: 'g1',
+        opponent: 'Rival',
+        me: { username: 'Yo', avatar: DEFAULT_AVATAR, elo: 10 },
+        rival: { username: 'Rival', avatar: DEFAULT_AVATAR, elo: 10 },
+        eloIfWin: 30,
+        eloIfLose: -30,
+      };
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+      socket.push('matchFound', info);
+      expect(service.matchInfo()).not.toBeNull();
+
+      socket.push('gameEnd', { winner: null, finalScores: [], won: false, elo: null });
+      expect(service.matchInfo()).toBeNull();
+
+      // "Nuevo Juego" desde resultados no llama a reset(): una segunda búsqueda
+      // empieza limpia aunque matchInfo se hubiese quedado sin borrar.
+      socket.push('matchFound', info);
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+      expect(service.matchInfo()).toBeNull();
+    });
+
+    it('gameEnd carries the server-decided ELO change into the outcome', () => {
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+
+      socket.push('gameEnd', {
+        winner: 'Yo',
+        finalScores: [{ username: 'Yo', score: 2 }, { username: 'Rival', score: 0 }],
+        won: true,
+        elo: { before: 1200, after: 1205, change: 5 },
+      });
+
+      expect(service.outcome()?.elo).toEqual({ before: 1200, after: 1205, change: 5 });
     });
 
     it('gameStart moves to active with the server-provided prefix and players', () => {
@@ -205,7 +247,7 @@ describe('Game', () => {
 
       expect(service.status()).toBe('active');
       expect(service.prefix()).toBe('con');
-      expect(service.timeRemaining()).toBe(300);
+      expect(service.timeRemaining()).toBe(120);
       expect(service.players().map((p) => p.username)).toEqual(['Yo', 'Rival']);
     });
 
@@ -315,6 +357,7 @@ describe('Game', () => {
           winner: 'Rival',
         },
         won: false,
+        elo: null,
       });
     });
 

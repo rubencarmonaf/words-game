@@ -27,12 +27,15 @@ export class Game implements OnInit {
   protected readonly prefixDisplay = computed(() => this.game.prefix().toUpperCase());
   protected readonly wordCountDisplay = computed(() => `Palabras: ${this.game.words().length}`);
   protected readonly isVersus = computed(() => this.game.mode() === 'versus');
-  /** "Con amigos" es N-jugador y casual: si cualquiera pudiera forfeitear,
-   * terminaría la partida para todos los demás sin ningún coste para quien
-   * la corta. Aquí no hay forma de salir antes de tiempo — solo el reloj
-   * decide. Versus sí conserva el botón: es 1v1 y forfeitear ya es una
-   * derrota automática para quien abandona, un mecanismo que se autolimita. */
-  protected readonly canEndEarly = computed(() => this.game.mode() !== 'lobby');
+  /** En las partidas online (versus y "con amigos") no hay forma de salir
+   * antes de tiempo: si cualquiera pudiera cortarla cuando quisiera,
+   * terminaría la partida para el resto y solo el reloj debe decidir. El
+   * botón queda para los modos locales (solo, cadena, amigos en un mismo
+   * dispositivo), donde terminar solo afecta a quien juega. */
+  protected readonly canEndEarly = computed(() => {
+    const mode = this.game.mode();
+    return mode !== 'lobby' && mode !== 'versus';
+  });
   protected readonly opponentScoreDisplay = computed(() => `Rival: ${this.game.opponentScore()}`);
 
   protected readonly timerDisplay = computed(() => {
@@ -87,12 +90,7 @@ export class Game implements OnInit {
   }
 
   protected endGame(): void {
-    const mode = this.game.mode();
-    if (mode === 'versus' || mode === 'lobby') {
-      this.game.forfeit();
-    } else {
-      this.game.end();
-    }
+    this.game.end();
   }
 
   private flashWordError(): void {

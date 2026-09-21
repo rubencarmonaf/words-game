@@ -140,7 +140,7 @@ describe('Game feature', () => {
     expect(component['opponentScoreDisplay']()).toBe('Rival: 0');
   });
 
-  it('endGame() forfeits instead of ending locally when the game is versus', async () => {
+  it('hides "Terminar Juego" in a versus match: only the clock (or the server) ends it', async () => {
     await setup();
     await startVersusGame();
 
@@ -148,12 +148,8 @@ describe('Game feature', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    component['endGame']();
-    await fixture.whenStable();
-
-    expect(socket.emitted).toContainEqual({ event: 'forfeitGame', data: { gameId: 'g1' } });
-    expect(gameService.status()).toBe('active');
-    expect(navigated).toEqual([]);
+    expect(component['canEndEarly']()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.game-controls')).toBeFalsy();
   });
 
   it('navigates to results once the server-driven gameEnd arrives', async () => {
@@ -177,10 +173,11 @@ describe('Game feature', () => {
     expect(navigated).toEqual(['/play/results']);
   });
 
-  it('shows "Terminar Juego" for solo and versus, but not for a lobby ("con amigos") match', async () => {
+  it('shows "Terminar Juego" in solo, a local mode where ending early only affects the player', async () => {
     await setup();
     await startSoloGame();
     fixture = TestBed.createComponent(GameFeature);
+    component = fixture.componentInstance;
     fixture.detectChanges();
     expect(component['canEndEarly']()).toBe(true);
     expect(fixture.nativeElement.querySelector('.game-controls')).toBeTruthy();
