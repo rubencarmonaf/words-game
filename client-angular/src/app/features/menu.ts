@@ -4,11 +4,11 @@ import { Auth } from '../core/services/auth';
 import { Profile } from '../core/services/profile';
 import { DailyChallenge } from '../core/services/daily-challenge';
 import { Socket } from '../core/services/socket';
-import { eloTier } from '../core/models/elo-tier';
 import { WwAvatar } from '../shared/components/ww-avatar';
+import { WwTierBadge } from '../shared/components/ww-tier-badge';
 
 @Component({
-  imports: [RouterLink, WwAvatar],
+  imports: [RouterLink, WwAvatar, WwTierBadge],
   selector: 'ww-menu',
   styleUrl: './menu.scss',
   templateUrl: './menu.html',
@@ -21,7 +21,6 @@ export class Menu implements OnInit, OnDestroy {
   private readonly router = inject(Router);
 
   protected readonly user = this.auth.currentUser;
-  protected readonly tier = computed(() => eloTier(this.user()?.elo ?? 0));
 
   protected readonly dailyStatus = this.dailyChallenge.status;
   protected readonly dailyCountdown = signal<number | null>(null);

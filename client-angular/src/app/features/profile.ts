@@ -8,11 +8,13 @@ import { Profile as ProfileService } from '../core/services/profile';
 import { eloTier } from '../core/models/elo-tier';
 import { Toast } from '../shared/services/toast';
 import { WwAvatar } from '../shared/components/ww-avatar';
+import { WwTierBadge } from '../shared/components/ww-tier-badge';
+import { WwRankEmblem } from '../shared/components/ww-rank-emblem';
 import { AvatarEditor } from '../shared/components/avatar-editor';
 
 @Component({
   selector: 'ww-profile',
-  imports: [ReactiveFormsModule, RouterLink, WwAvatar, AvatarEditor],
+  imports: [ReactiveFormsModule, RouterLink, WwAvatar, WwTierBadge, WwRankEmblem, AvatarEditor],
   styleUrl: './profile.scss',
   templateUrl: './profile.html',
 })

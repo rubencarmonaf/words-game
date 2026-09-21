@@ -10,10 +10,7 @@
           <ww-avatar [options]="u.avatar" size="md" />
           <span class="ww-id-chip-text">
             <span class="ww-id-chip-name">{{ u.username }}</span>
-            <span class="ww-tier-badge ww-tier-badge--{{ tier().key }}">
-              <span class="ww-tier-dot"></span>
-              <span>{{ tier().name }}</span>
-            </span>
+            <ww-tier-badge [elo]="u.elo" />
           </span>
         </button>
       }
