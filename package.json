@@ -9,6 +9,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "dev:client": "npm --prefix client-angular start",
     "build:client": "npm --prefix client-angular run build",
+    "build:all": "npm run build && npm run build:client",
     "test:client": "npm --prefix client-angular test",
     "compress:images": "node scripts/compress-images.mjs"
   },

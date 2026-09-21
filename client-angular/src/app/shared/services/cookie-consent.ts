@@ -1,4 +1,5 @@
-import { Service, signal } from '@angular/core';
+import { PLATFORM_ID, Service, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 export interface CookieConsent {
   necessary: true;
@@ -17,6 +18,9 @@ const GA_MEASUREMENT_ID = 'G-XXXXXXXXXX';
  * site-notice unconditionally rather than per static page. */
 @Service()
 export class CookieConsentService {
+  // En el servidor (prerender) no hay localStorage ni banner: el HTML que ve un
+  // buscador no debe llevar el aviso de cookies como si fuera contenido de la página.
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly consentSignal = signal<CookieConsent | null>(this.readStored());
   private readonly visibleSignal = signal(false);
   private analyticsLoaded = false;
@@ -25,6 +29,7 @@ export class CookieConsentService {
   readonly visible = this.visibleSignal.asReadonly();
 
   constructor() {
+    if (!this.isBrowser) return;
     const consent = this.consentSignal();
     if (!consent) {
       this.visibleSignal.set(true);
@@ -51,6 +56,7 @@ export class CookieConsentService {
   }
 
   private readStored(): CookieConsent | null {
+    if (!this.isBrowser) return null;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;

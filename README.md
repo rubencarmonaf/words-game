@@ -106,13 +106,41 @@ npm run dev:client
 
 ### Producción
 ```bash
-# Compilar todo
-npm run build
-npm run build:client
+# Compilar backend y frontend
+npm run build:all
 
-# Iniciar servidor
+# Iniciar servidor (sirve también la web de Angular ya compilada)
 npm start
 ```
+
+En producción un único proceso hace de API, Socket.IO y servidor de la web: el
+cliente llama a rutas relativas (`/api`, `/socket.io`), así que no hay URLs que
+configurar ni CORS. Solo puede haber **una instancia**: la cola de matchmaking,
+los lobbies, las partidas y la presencia viven en memoria.
+
+### Despliegue en Render
+El repo incluye un `render.yaml` (Blueprint). En Render: *New → Blueprint*,
+elige este repositorio y rellena lo que te pida:
+
+| Variable | Valor |
+|---|---|
+| `MONGODB_URI` | Cadena de conexión de MongoDB Atlas |
+| `CLIENT_URL` | La URL pública del servicio, p. ej. `https://wordwars.onrender.com` (se usa en el enlace del email de recuperar contraseña) |
+| `JWT_SECRET` | Se genera sola |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Opcionales; sin ellas el email de recuperar contraseña no se envía |
+
+En Atlas hay que permitir el acceso de red desde Render (*Network Access*). En el
+plan gratuito el servicio se duerme tras un rato sin tráfico y pierde el estado
+en memoria; para uso real conviene un plan de pago.
+
+### SEO
+Solo se posicionan las páginas públicas (la landing y las legales); el juego está tras el login.
+
+- **Prerenderizado:** al compilar, Angular genera el HTML completo de `/`, `/legal/*` y `/contacto` (`app.routes.server.ts`), así que un buscador o una vista previa de enlace ven el contenido sin ejecutar JavaScript. El resto de rutas se renderizan en el navegador.
+- **Metadatos por ruta:** cada ruta declara `title` y `data.seo` (`description`, `noindex`) en `app.routes.ts`; `SeoTitleStrategy` los aplica junto con canonical, Open Graph, Twitter y robots. El dominio se toma de `CLIENT_URL` en producción.
+- **Servidor:** `/robots.txt` y `/sitemap.xml` se generan al vuelo, y las rutas que no existen responden **404** de verdad.
+
+**Al añadir una página pública nueva** hay que tocar cuatro sitios: su ruta en `app.routes.ts` (con `title` y `data.seo`), `app.routes.server.ts` (prerender), y `PUBLIC_PAGES` y `CLIENT_ROUTES` en `src/server.ts`. Si es una pantalla privada, basta con la ruta (con `noindex`), `CLIENT_ROUTES` y, si procede, `ROBOTS_DISALLOW`. Si se olvida `CLIENT_ROUTES`, esa ruta responderá 404.
 
 ## 🏗️ Arquitectura
 

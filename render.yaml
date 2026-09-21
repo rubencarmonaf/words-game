@@ -1,0 +1,24 @@
+# Blueprint de Render: un único Web Service que compila backend y frontend y sirve
+# ambos (Express + Socket.IO + la web de Angular). Ver "Despliegue en Render" en
+# el README.
+services:
+  - type: web
+    name: wordwars
+    runtime: node
+    plan: free
+    # --include=dev: NODE_ENV=production haría que npm omitiera typescript y el
+    # CLI de Angular, que se necesitan para compilar.
+    buildCommand: npm install --include=dev && npm --prefix client-angular install --include=dev && npm run build:all
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_URL
+        sync: false
