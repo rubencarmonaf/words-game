@@ -1,6 +1,8 @@
+import { vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Router, provideRouter } from '@angular/router';
 import { DEFAULT_AVATAR } from '@shared-types';
 import { ChatPanel } from './chat-panel';
 import { Friends } from '../../core/services/friends';
@@ -23,7 +25,12 @@ describe('ChatPanel', () => {
 
     await TestBed.configureTestingModule({
       imports: [ChatPanel],
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: Socket, useClass: FakeSocket }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: Socket, useClass: FakeSocket },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ChatPanel);
@@ -91,6 +98,77 @@ describe('ChatPanel', () => {
 
     expect(socket.emitted).toContainEqual({ event: 'dm:send', data: { to: 'f1', text: 'hola Ana' } });
     expect(fixture.componentInstance['chatControl'].value).toBe('');
+  });
+
+  function invite(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'i1',
+      from: 'f1',
+      to: 'me',
+      text: 'Ana te invitó a una partida con amigos',
+      createdAt: '2026-01-01T00:00:00Z',
+      kind: 'lobby-invite',
+      lobbyId: 'L1',
+      lobbyActive: true,
+      ...overrides,
+    };
+  }
+
+  async function openThreadWith(messages: unknown[]): Promise<void> {
+    await setup();
+    messagesService.openThread('f1');
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: messages });
+    fixture.detectChanges();
+  }
+
+  it('shows an open lobby invite as a card whose "Unirse" button navigates to that lobby', async () => {
+    await openThreadWith([invite()]);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.chat-invite')).toBeTruthy();
+    expect(el.querySelector('.chat-bubble')).toBeFalsy();
+
+    (el.querySelector('.chat-invite-join') as HTMLButtonElement).click();
+
+    expect(navigate).toHaveBeenCalledWith('/lobby/L1');
+  });
+
+  it('once you are inside that lobby, the invite says so instead of offering to join again', async () => {
+    await openThreadWith([invite()]);
+    socket.push('lobby:update', { lobbyId: 'L1', hostId: 'f1', players: [{ userId: 'me', username: 'Yo' }], playerCount: 1 });
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.chat-invite-join')).toBeFalsy();
+    expect(el.querySelector('.chat-invite-status')?.textContent).toContain('Ya estás en este lobby');
+  });
+
+  it('shows a closed invite without the join button', async () => {
+    await openThreadWith([invite({ lobbyActive: false })]);
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.chat-invite--closed')).toBeTruthy();
+    expect(el.querySelector('.chat-invite-join')).toBeFalsy();
+    expect(el.querySelector('.chat-invite-status')?.textContent).toContain('Lobby cerrado');
+  });
+
+  it('an invite you sent reads as yours and has no join button', async () => {
+    await openThreadWith([invite({ from: 'me', to: 'f1' })]);
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.chat-invite-text')?.textContent).toContain('Invitaste a Ana');
+    expect(el.querySelector('.chat-invite-join')).toBeFalsy();
+  });
+
+  it('the join button disappears live when the lobby closes', async () => {
+    await openThreadWith([invite()]);
+    expect(fixture.nativeElement.querySelector('.chat-invite-join')).toBeTruthy();
+
+    socket.push('lobby:closed', { lobbyId: 'L1' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.chat-invite-join')).toBeFalsy();
   });
 
   it('close() clears the active thread, hiding the panel again', async () => {

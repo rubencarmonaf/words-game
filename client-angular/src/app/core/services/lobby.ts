@@ -94,6 +94,12 @@ export class Lobby {
 
   /** Se une a un lobby existente tras aceptar una invitación. */
   join(lobbyId: string): void {
+    // Aceptar una invitación estando ya en otro lobby: sin salir, el jugador
+    // se quedaba a la vez dentro del anterior (y, si era el anfitrión, dejaba
+    // ese lobby abierto para siempre).
+    const current = this.lobbyIdSignal();
+    if (current && current !== lobbyId) this.socket.emit('lobby:leave', { lobbyId: current });
+
     this.reset();
     this.game.setMode('lobby');
     this.socket.connect();

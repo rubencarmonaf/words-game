@@ -11,6 +11,11 @@ export interface ChatMessage {
   to: string;
   text: string;
   createdAt: string;
+  /** Ausente en mensajes antiguos: se trata como 'text'. */
+  kind?: 'text' | 'lobby-invite';
+  /** Solo en invitaciones: el lobby al que apuntan y si sigue abierto. */
+  lobbyId?: string;
+  lobbyActive?: boolean;
 }
 
 /** Chat 1:1 con amigos — siempre persistido (ver Message en el backend), así
@@ -34,6 +39,15 @@ export class Messages {
 
   constructor() {
     this.socket.on<ChatMessage>('dm:message').subscribe((message) => this.handleIncoming(message));
+
+    // Una invitación solo se puede aceptar mientras su lobby siga abierto: el
+    // servidor avisa cuando arranca o se disuelve para apagar el botón sin
+    // esperar a que el usuario lo pulse y se lleve un error.
+    this.socket.on<{ lobbyId: string }>('lobby:closed').subscribe(({ lobbyId }) => {
+      this.messagesSignal.update((list) =>
+        list.map((m) => (m.lobbyId === lobbyId ? { ...m, lobbyActive: false } : m)),
+      );
+    });
 
     // Igual que Friends: al (re)conectar se repite el conteo de no leídos,
     // así un aviso perdido durante un corte no deja el badge desactualizado.

@@ -86,6 +86,39 @@ describe('Messages', () => {
     expect(service.unreadCounts()['friend3']).toBe(0);
   });
 
+  it('a lobby invite arriving in the open thread is appended with its lobby data', () => {
+    service.openThread('friend1');
+    httpMock.expectOne('/api/messages/friend1').flush({ success: true, data: [] });
+
+    socket.push('dm:message', {
+      id: 'i1',
+      from: 'friend1',
+      to: 'me',
+      text: 'Ana te invitó a una partida con amigos',
+      createdAt: '2026-01-01T00:05:00Z',
+      kind: 'lobby-invite',
+      lobbyId: 'lobby9',
+      lobbyActive: true,
+    });
+
+    expect(service.messages()[0]).toMatchObject({ kind: 'lobby-invite', lobbyId: 'lobby9', lobbyActive: true });
+  });
+
+  it('lobby:closed switches off the invites that point at that lobby, and only those', () => {
+    service.openThread('friend1');
+    httpMock.expectOne('/api/messages/friend1').flush({
+      success: true,
+      data: [
+        { id: 'i1', from: 'friend1', to: 'me', text: 'a', createdAt: 'x', kind: 'lobby-invite', lobbyId: 'L1', lobbyActive: true },
+        { id: 'i2', from: 'friend1', to: 'me', text: 'b', createdAt: 'x', kind: 'lobby-invite', lobbyId: 'L2', lobbyActive: true },
+      ],
+    });
+
+    socket.push('lobby:closed', { lobbyId: 'L1' });
+
+    expect(service.messages().map((m) => m.lobbyActive)).toEqual([false, true]);
+  });
+
   it('closeThread() clears the active thread and its messages', () => {
     service.openThread('friend1');
     httpMock.expectOne('/api/messages/friend1').flush({ success: true, data: [] });

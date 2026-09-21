@@ -183,6 +183,8 @@
   }
 }
 .friend-row {
+  // El doble clic abre el chat; sin esto también seleccionaba el nombre.
+  user-select: none;
   display: flex;
   align-items: center;
   gap: 10px;
