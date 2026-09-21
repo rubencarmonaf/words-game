@@ -43,6 +43,9 @@ export class Login {
 
       if (result.success) {
         this.router.navigateByUrl('/menu');
+      } else if (result.code === 'EMAIL_NOT_VERIFIED') {
+        this.auth.pendingVerificationEmail.set(email);
+        this.router.navigateByUrl('/auth/check-email');
       } else if (result.message === 'Credenciales inválidas') {
         this.form.controls.email.markAsTouched();
         this.form.controls.password.setErrors({ server: 'Email o contraseña incorrectos' });

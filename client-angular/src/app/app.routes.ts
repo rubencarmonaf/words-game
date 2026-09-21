@@ -32,6 +32,22 @@ export const routes: Routes = [
       import('./features/auth/forgot-password').then((m) => m.ForgotPassword),
   },
   {
+    // Pantalla "revisa tu correo": se llega tras registrarse o al intentar entrar sin verificar.
+    path: 'auth/check-email',
+    title: 'Revisa tu correo',
+    data: { seo: { noindex: true } },
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/auth/check-email').then((m) => m.CheckEmail),
+  },
+  {
+    // Sin guestGuard: el enlace del email tiene que funcionar aunque el navegador
+    // conserve otra sesión (la verificación la sustituye por la de esta cuenta).
+    path: 'auth/verify-email',
+    title: 'Confirmar email',
+    data: { seo: { noindex: true } },
+    loadComponent: () => import('./features/auth/verify-email').then((m) => m.VerifyEmail),
+  },
+  {
     // No guestGuard here on purpose: the reset link WordWars emails must work
     // even if the browser still has an unrelated (or stale) session logged
     // in — matches main.ts's original ?reset= handling, which never checked

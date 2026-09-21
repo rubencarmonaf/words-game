@@ -1,0 +1,33 @@
+<ww-auth-card [showTabs]="false">
+  <div class="check-email">
+    <span class="check-email-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><polyline points="3 7 12 13 21 7" /></svg>
+    </span>
+    <h2>Revisa tu correo</h2>
+
+    @if (email(); as address) {
+      <p class="check-email-text">
+        Te hemos enviado un enlace de confirmación a <strong>{{ address }}</strong>. Ábrelo para activar tu
+        cuenta; caduca en 24 horas.
+      </p>
+      <p class="check-email-hint">¿No aparece? Mira en la carpeta de spam o correo no deseado.</p>
+
+      <button type="button" class="btn btn-secondary" [disabled]="sending() || cooldown() > 0" (click)="resend()">
+        @if (cooldown() > 0) {
+          Reenviar en {{ cooldown() }} s
+        } @else if (sending()) {
+          Enviando…
+        } @else {
+          Reenviar email
+        }
+      </button>
+    } @else {
+      <p class="check-email-text">
+        Para entrar tienes que confirmar tu email con el enlace que te enviamos al registrarte.
+      </p>
+    }
+
+    <a routerLink="/auth" class="auth-link">Ya lo confirmé, iniciar sesión</a>
+    <a routerLink="/auth/register" class="auth-link">Me equivoqué de email</a>
+  </div>
+</ww-auth-card>
