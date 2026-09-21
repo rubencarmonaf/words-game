@@ -115,6 +115,8 @@ export interface MatchmakingPlayer {
   avatar: AvatarOptions;
   socketId?: string;
   queuedAt: number;
+  /** Última vez que se vio a este jugador con un socket conectado mientras esperaba. */
+  lastSeen?: number;
 }
 
 // Socket Types
