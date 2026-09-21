@@ -142,6 +142,13 @@ Solo se posicionan las páginas públicas (la landing y las legales); el juego e
 
 **Al añadir una página pública nueva** hay que tocar cuatro sitios: su ruta en `app.routes.ts` (con `title` y `data.seo`), `app.routes.server.ts` (prerender), y `PUBLIC_PAGES` y `CLIENT_ROUTES` en `src/server.ts`. Si es una pantalla privada, basta con la ruta (con `noindex`), `CLIENT_ROUTES` y, si procede, `ROBOTS_DISALLOW`. Si se olvida `CLIENT_ROUTES`, esa ruta responderá 404.
 
+### Seguridad
+- **HTTPS:** lo da Render (certificado y redirección automáticos). El socket usa `wss://` por sí solo al compartir origen con la web.
+- **Cabeceras (`helmet`):** HSTS, `nosniff`, `Referrer-Policy: no-referrer` (el token de recuperar contraseña va en la URL), etc. Las páginas llevan una CSP con los hashes de sus scripts y manejadores en línea, calculados al servirlas, sin `unsafe-inline` para scripts. Si activas la analítica de Google (`cookie-consent.ts`) y algo se bloquea, ajusta `script-src` / `connect-src` en `sendPage` (`src/server.ts`).
+- **Límite de intentos** (en memoria, por IP; vale porque solo hay una instancia): login 10 cada 15 min (por IP y por email; los inicios de sesión correctos no cuentan), registro 10/h, recuperar contraseña 5/h y nueva contraseña 10/h. Responden `429` con `Retry-After`.
+- **CORS:** en producción solo se admite el origen de `CLIENT_URL` (la web y la API comparten origen, así que el navegador ni lo necesita); en desarrollo, `localhost:4200`, `3000` y `5173`. Las peticiones sin cabecera `Origin` (scripts, curl) no se ven afectadas.
+- **`JWT_SECRET`:** en producción el servidor no arranca sin ella.
+
 ## 🏗️ Arquitectura
 
 ### Backend Structure
