@@ -68,21 +68,32 @@ userSchema.methods.updateStats = function(): void {
   this.lastActive = new Date();
 };
 
-// Calcula el cambio de ELO tras una partida. K=60 da ~30 puntos por victoria
-// entre rivales de ELO igual (más si el rival tiene más ELO, menos si tiene menos).
+// K=60 da ~30 puntos por victoria entre rivales de ELO igual (más si el rival
+// tiene más ELO, menos si tiene menos).
+const ELO_K_FACTOR = 60;
+// La fórmula ELO pura da ~0 al favorito enorme (1200 vs 0 → 99,9% esperado de
+// ganar), y una partida ganada que no mueve nada se siente rota. Todo
+// resultado decisivo mueve al menos esto.
+const ELO_MIN_SWING = 5;
+
+/** Cambio de ELO que recibiría un jugador con `playerElo` al ganar/perder
+ * contra `opponentElo`. Es la fuente única tanto del cálculo real como de la
+ * previsión que se muestra en la pantalla de versus. El ELO nunca baja de 0,
+ * así que la pérdida se recorta a lo que el jugador realmente tiene. */
+export function eloChangeFor(playerElo: number, opponentElo: number, won: boolean, kFactor: number = ELO_K_FACTOR): number {
+  const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+  const swing = Math.max(ELO_MIN_SWING, Math.round(kFactor * (won ? 1 - expectedScore : expectedScore)));
+  return won ? swing : -Math.min(swing, playerElo);
+}
+
+// Aplica el resultado de una partida y devuelve el cambio de ELO realmente aplicado.
 userSchema.methods.updateElo = function(
   opponentElo: number,
   won: boolean,
-  kFactor: number = 60
+  kFactor: number = ELO_K_FACTOR
 ): number {
-  const expectedScore = 1 / (1 + Math.pow(10, (opponentElo - this.elo) / 400));
-  const actualScore = won ? 1 : 0;
-  const eloChange = Math.round(kFactor * (actualScore - expectedScore));
-
-  // El ELO nunca baja de 0 (ver el validador `min` del esquema) — se aplica el
-  // cambio real tras el recorte, no el teórico, para que lo devuelto sea preciso.
-  const newElo = Math.max(0, this.elo + eloChange);
-  const appliedChange = newElo - this.elo;
+  const appliedChange = eloChangeFor(this.elo, opponentElo, won, kFactor);
+  const newElo = this.elo + appliedChange;
   this.elo = newElo;
   this.gamesPlayed += 1;
   if (won) this.gamesWon += 1;

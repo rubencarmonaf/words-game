@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
 // Import models
-import User from './models/User';
+import User, { eloChangeFor } from './models/User';
 import Game from './models/Game';
 import Friendship from './models/Friendship';
 import DailyChallenge from './models/DailyChallenge';
@@ -559,13 +559,7 @@ app.get('/api/messages/:friendId', authenticateToken, async (req: any, res) => {
 
     res.json({
       success: true,
-      data: messages.map((m: any) => ({
-        id: m._id.toString(),
-        from: m.from,
-        to: m.to,
-        text: m.text,
-        createdAt: m.createdAt
-      }))
+      data: messages.map(serializeMessage)
     });
   } catch (error) {
     console.error('Error obteniendo historial de mensajes:', error);
@@ -620,6 +614,9 @@ interface LobbyState {
   hostId: string;
   players: LobbyPlayer[];
   invited: Set<string>;
+  // userIds de los invitados: a ellos se les avisa cuando el lobby se cierra,
+  // para desactivar la invitación que quedó en su chat
+  inviteeIds: Set<string>;
   started: boolean;
 }
 
@@ -663,6 +660,7 @@ app.post('/api/matchmaking/join', authenticateToken, async (req: any, res) => {
       userId: req.user.userId,
       username: user.username,
       elo: user.elo,
+      avatar: user.avatar,
       socketId: undefined,
       queuedAt: Date.now()
     });
@@ -807,10 +805,14 @@ app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, re
 
 // ---------- Partidas Versus y Con amigos (arbitradas por el servidor) ----------
 const VERSUS_PREFIXES = ['de', 'con', 'pre', 'ex', 'in', 'ca', 'ma', 'pa', 'ba', 'to', 'ver', 'sal', 'fin', 'mar', 'sol', 'cor', 'ter', 'res'];
-const VERSUS_DURATION_MS = 5 * 60 * 1000;
-// "Con amigos" es casual (no afecta ELO) y N-jugador, así que se juega a un
-// ritmo más corto que el 1v1 rankeado — coherente con el resto del catálogo casual.
+// Versus dura lo mismo que un entrenamiento en solo: partidas cortas para que
+// encadenar una tras otra sea fácil. Debe coincidir con VERSUS_DURATION_SECONDS
+// en el cliente (game.ts), que solo pinta el contador.
+const VERSUS_DURATION_MS = 2 * 60 * 1000;
 const LOBBY_DURATION_MS = 2 * 60 * 1000;
+// Tiempo que se muestra la pantalla "VS" (rival, avatar, ELO en juego) entre
+// que se encuentra partida y arranca de verdad.
+const VERSUS_INTRO_MS = 5000;
 
 // Partidas versus/amigos en curso: el documento Game vive en memoria durante la partida
 // y se persiste en cada palabra/al terminar, evitando una relectura por jugada.
@@ -906,18 +908,23 @@ async function finishGame(gameId: string, reason: 'timeout' | 'forfeit', forfeit
   gameDoc.end(winnerId || undefined);
   await gameDoc.save();
 
-  // El ELO solo existe en versus (1v1 rankeado); "con amigos" nunca lo toca
-  if (winnerId && isVersus) {
-    const loser = players.find((p: any) => p.userId !== winnerId);
-    const winnerUser = await User.findById(winnerId);
-    const loserUser = loser ? await User.findById(loser.userId) : null;
-    if (winnerUser && loserUser) {
-      const winnerEloBefore = winnerUser.elo;
-      const loserEloBefore = loserUser.elo;
-      winnerUser.updateElo(loserEloBefore, true);
-      loserUser.updateElo(winnerEloBefore, false);
-      await winnerUser.save();
-      await loserUser.save();
+  // El ELO solo existe en versus (1v1 rankeado); "con amigos" nunca lo toca.
+  // eloResults guarda antes/después por jugador para mostrarlo en pantalla; en
+  // un empate (sin ganador) no se mueve nada pero igualmente se informa.
+  const eloResults = new Map<string, { before: number; after: number; change: number }>();
+  if (isVersus) {
+    const users = await Promise.all(players.map((p: any) => User.findById(p.userId)));
+    if (users.every(Boolean)) {
+      const before = users.map((u: any) => u.elo);
+      if (winnerId) {
+        users.forEach((user: any, i: number) => {
+          user.updateElo(before[1 - i], players[i].userId === winnerId);
+        });
+        await Promise.all(users.map((u: any) => u.save()));
+      }
+      users.forEach((user: any, i: number) => {
+        eloResults.set(players[i].userId, { before: before[i], after: user.elo, change: user.elo - before[i] });
+      });
     }
   }
 
@@ -930,7 +937,8 @@ async function finishGame(gameId: string, reason: 'timeout' | 'forfeit', forfeit
     emitToUser(p.userId, 'gameEnd', {
       winner: winnerUsername,
       finalScores,
-      won: winnerId === p.userId
+      won: winnerId === p.userId,
+      elo: eloResults.get(p.userId) ?? null
     });
   }
 
@@ -1032,7 +1040,7 @@ io.on('connection', (socket) => {
 
     // Un anfitrión solo puede tener un lobby abierto a la vez
     for (const [id, existing] of lobbies) {
-      if (existing.hostId === authSocket.userId) lobbies.delete(id);
+      if (existing.hostId === authSocket.userId) closeLobby(id);
     }
 
     const lobbyId = new mongoose.Types.ObjectId().toString();
@@ -1041,6 +1049,7 @@ io.on('connection', (socket) => {
       hostId: authSocket.userId,
       players: [{ userId: authSocket.userId, username: authSocket.username }],
       invited: new Set(),
+      inviteeIds: new Set(),
       started: false
     };
     lobbies.set(lobbyId, lobby);
@@ -1076,8 +1085,27 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const friendId = friend._id.toString();
+    const firstInvite = !lobby.inviteeIds.has(friendId);
     lobby.invited.add(data.friendUsername);
-    emitToUser(friend._id.toString(), 'lobby:invited', { lobbyId: lobby.lobbyId, hostUsername: authSocket.username });
+    lobby.inviteeIds.add(friendId);
+    emitToUser(friendId, 'lobby:invited', { lobbyId: lobby.lobbyId, hostUsername: authSocket.username });
+
+    // Además del aviso efímero, la invitación queda en el chat: si el amigo
+    // no estaba mirando la pantalla, puede aceptarla al volver mientras el
+    // lobby siga abierto. Solo una vez por amigo y lobby.
+    if (firstInvite) {
+      const invite = await (Message as any).create({
+        from: authSocket.userId,
+        to: friendId,
+        text: `${authSocket.username} te invitó a una partida con amigos`,
+        kind: 'lobby-invite',
+        lobbyId: lobby.lobbyId
+      });
+      const invitePayload = serializeMessage(invite);
+      emitToUser(authSocket.userId, 'dm:message', invitePayload);
+      emitToUser(friendId, 'dm:message', invitePayload);
+    }
     io.to(`lobby:${lobby.lobbyId}`).emit('lobby:update', serializeLobby(lobby));
   });
 
@@ -1123,7 +1151,7 @@ io.on('connection', (socket) => {
     }
 
     lobby.started = true;
-    lobbies.delete(lobby.lobbyId);
+    closeLobby(lobby.lobbyId);
     startLobbyGame(lobby);
   });
 
@@ -1148,6 +1176,7 @@ io.on('connection', (socket) => {
         hostId: finished.hostId,
         players: [],
         invited: new Set(),
+        inviteeIds: new Set(),
         started: false
       });
       finished.rematchLobbyId = lobbyId;
@@ -1173,13 +1202,7 @@ io.on('connection', (socket) => {
     }
 
     const message = await (Message as any).create({ from: authSocket.userId, to: data.to, text });
-    const payload = {
-      id: message._id.toString(),
-      from: message.from,
-      to: message.to,
-      text: message.text,
-      createdAt: message.createdAt
-    };
+    const payload = serializeMessage(message);
 
     socket.emit('dm:message', payload);
     emitToUser(data.to, 'dm:message', payload);
@@ -1222,6 +1245,32 @@ async function notifyFriendsOfPresence(userId: string, event: 'friend:online' | 
   }
 }
 
+// Cierra un lobby (arrancó, se disolvió o lo reemplazó otro) y avisa a quienes
+// fueron invitados para que la invitación de su chat deje de ser aceptable.
+function closeLobby(lobbyId: string): void {
+  const lobby = lobbies.get(lobbyId);
+  if (!lobby) return;
+  lobbies.delete(lobbyId);
+  for (const inviteeId of lobby.inviteeIds) {
+    emitToUser(inviteeId, 'lobby:closed', { lobbyId });
+  }
+}
+
+// Forma en que un mensaje viaja al cliente (historial y en vivo). Una
+// invitación lleva además si su lobby sigue abierto en este momento.
+function serializeMessage(m: any) {
+  const isInvite = m.kind === 'lobby-invite';
+  return {
+    id: m._id.toString(),
+    from: m.from,
+    to: m.to,
+    text: m.text,
+    createdAt: m.createdAt,
+    kind: m.kind || 'text',
+    ...(isInvite ? { lobbyId: m.lobbyId, lobbyActive: lobbies.has(m.lobbyId) } : {})
+  };
+}
+
 // Saca a un jugador de un lobby: si era el anfitrión, el lobby se disuelve
 // para todos; si era un invitado, simplemente se actualiza la lista en vivo.
 function leaveLobby(lobbyId: string, userId: string): void {
@@ -1229,7 +1278,7 @@ function leaveLobby(lobbyId: string, userId: string): void {
   if (!lobby || !lobby.players.some((p) => p.userId === userId)) return;
 
   if (lobby.hostId === userId) {
-    lobbies.delete(lobbyId);
+    closeLobby(lobbyId);
     io.to(`lobby:${lobbyId}`).emit('lobby:disbanded');
   } else {
     lobby.players = lobby.players.filter((p) => p.userId !== userId);
@@ -1238,14 +1287,18 @@ function leaveLobby(lobbyId: string, userId: string): void {
 }
 
 // El rango de ELO aceptable empieza estrecho (partidas parejas) y se ensancha
-// cuanto más lleva alguien esperando, para no dejar a nadie en cola para siempre
-// si no hay rivales cercanos.
+// cuanto más lleva alguien esperando. Con pocos jugadores conectados, esperar
+// un rival "justo" es peor que jugar una partida desigual, así que pasado
+// MATCHMAKING_ANY_OPPONENT_MS se acepta a cualquiera: la espera máxima queda
+// acotada en vez de crecer con la diferencia de ELO.
 const MATCHMAKING_INITIAL_RANGE = 100;
-const MATCHMAKING_RANGE_STEP = 50;
-const MATCHMAKING_STEP_MS = 5000;
+const MATCHMAKING_RANGE_STEP = 100;
+const MATCHMAKING_STEP_MS = 3000;
+const MATCHMAKING_ANY_OPPONENT_MS = 15000;
 
 function matchmakingRange(player: MatchmakingPlayer): number {
   const waited = Date.now() - player.queuedAt;
+  if (waited >= MATCHMAKING_ANY_OPPONENT_MS) return Infinity;
   return MATCHMAKING_INITIAL_RANGE + Math.floor(waited / MATCHMAKING_STEP_MS) * MATCHMAKING_RANGE_STEP;
 }
 
@@ -1281,19 +1334,27 @@ setInterval(() => {
         // el socketId guardado en la cola es solo el respaldo para la carrera
         // en la que el socket se autentica antes de que el POST
         // /matchmaking/join termine de guardarlo
-        if (isUserOnline(player1.userId)) {
-          emitToUser(player1.userId, 'matchFound', { gameId, opponent: player2.username });
-        } else if (player1.socketId) {
-          io.to(player1.socketId).emit('matchFound', { gameId, opponent: player2.username });
-        }
-        if (isUserOnline(player2.userId)) {
-          emitToUser(player2.userId, 'matchFound', { gameId, opponent: player1.username });
-        } else if (player2.socketId) {
-          io.to(player2.socketId).emit('matchFound', { gameId, opponent: player1.username });
-        }
+        const notifyMatchFound = (player: MatchmakingPlayer, rival: MatchmakingPlayer) => {
+          const payload = {
+            gameId,
+            opponent: rival.username,
+            me: { username: player.username, avatar: player.avatar, elo: player.elo },
+            rival: { username: rival.username, avatar: rival.avatar, elo: rival.elo },
+            // Lo que cada uno ganaría/perdería, para la pantalla VS
+            eloIfWin: eloChangeFor(player.elo, rival.elo, true),
+            eloIfLose: eloChangeFor(player.elo, rival.elo, false)
+          };
+          if (isUserOnline(player.userId)) {
+            emitToUser(player.userId, 'matchFound', payload);
+          } else if (player.socketId) {
+            io.to(player.socketId).emit('matchFound', payload);
+          }
+        };
+        notifyMatchFound(player1, player2);
+        notifyMatchFound(player2, player1);
 
-        // Pequeña pausa antes de arrancar la partida para que se vea el aviso de emparejamiento
-        setTimeout(() => { startVersusGame(gameId, player1, player2); }, 1500);
+        // Pausa antes de arrancar para que se vea la pantalla VS
+        setTimeout(() => { startVersusGame(gameId, player1, player2); }, VERSUS_INTRO_MS);
 
         break;
       }
