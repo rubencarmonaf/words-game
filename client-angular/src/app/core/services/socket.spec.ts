@@ -10,6 +10,7 @@ function makeFakeSocket() {
     on: vi.fn(),
     off: vi.fn(),
     emit: vi.fn(),
+    connect: vi.fn(),
     disconnect: vi.fn(),
   };
 }
@@ -130,5 +131,44 @@ describe('Socket', () => {
     service.disconnect();
 
     expect(fakeSocket.disconnect).toHaveBeenCalled();
+  });
+
+  it('connect() twice reuses the same socket instead of opening a second one', () => {
+    const openSocket = vi.fn(() => fakeSocket);
+    TestBed.overrideProvider(IO_CONNECT, { useValue: openSocket });
+    const service = TestBed.inject(Socket);
+
+    service.connect();
+    service.connect();
+
+    expect(openSocket).toHaveBeenCalledTimes(1);
+  });
+
+  it('connect() on a dropped socket tells it to reconnect', () => {
+    const service = TestBed.inject(Socket);
+    service.connect();
+    fakeSocket.connected = false;
+
+    service.connect();
+
+    expect(fakeSocket.connect).toHaveBeenCalled();
+  });
+
+  it('reconnects when the page becomes visible again with the socket down', () => {
+    const service = TestBed.inject(Socket);
+    service.connect();
+    fakeSocket.connected = false;
+
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(fakeSocket.connect).toHaveBeenCalled();
+  });
+
+  it('never gives up reconnecting on its own', () => {
+    const openSocket = vi.fn(() => fakeSocket);
+    TestBed.overrideProvider(IO_CONNECT, { useValue: openSocket });
+    TestBed.inject(Socket).connect();
+
+    expect(openSocket).toHaveBeenCalledWith(expect.objectContaining({ reconnectionAttempts: Infinity }));
   });
 });

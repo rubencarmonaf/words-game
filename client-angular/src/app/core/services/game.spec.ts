@@ -361,6 +361,54 @@ describe('Game', () => {
       });
     });
 
+    it('a resumed gameStart restores the words, the scores and the remaining time', () => {
+      useServiceAuthenticatedAs('u1');
+      service.startMatchmaking().subscribe();
+      httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+
+      socket.push('gameStart', {
+        gameId: 'g1',
+        prefix: 'con',
+        gameType: 'versus',
+        resumed: true,
+        remainingSeconds: 37,
+        players: [
+          { userId: 'u1', username: 'Yo', words: ['cosa', 'cono'], score: 2 },
+          { userId: 'u2', username: 'Rival', words: ['corte'], score: 1 },
+        ],
+      });
+
+      expect(service.status()).toBe('active');
+      expect(service.timeRemaining()).toBe(37);
+      expect(service.words()).toEqual(['cosa', 'cono']);
+      expect(service.opponentScore()).toBe(1);
+    });
+
+    it('asks the server to resync when the game does not start after the VS screen, and stops once it does', () => {
+      vi.useFakeTimers();
+      try {
+        service.startMatchmaking().subscribe();
+        httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
+        const me = { username: 'Yo', avatar: DEFAULT_AVATAR, elo: 10 };
+        const rival = { username: 'Rival', avatar: DEFAULT_AVATAR, elo: 20 };
+        socket.push('matchFound', { gameId: 'g1', opponent: 'Rival', me, rival, eloIfWin: 5, eloIfLose: -5 });
+        const resyncs = (): number => socket.emitted.filter((e) => e.event === 'game:resync').length;
+
+        vi.advanceTimersByTime(7_000);
+        expect(resyncs()).toBe(0);
+        vi.advanceTimersByTime(1_500);
+        expect(resyncs()).toBe(1);
+        vi.advanceTimersByTime(2_000);
+        expect(resyncs()).toBe(2);
+
+        socket.push('gameStart', { gameId: 'g1', prefix: 'con', players: [] });
+        vi.advanceTimersByTime(10_000);
+        expect(resyncs()).toBe(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('the versus timer freezes at zero instead of ending the game locally', () => {
       vi.useFakeTimers();
       try {

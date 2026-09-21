@@ -85,7 +85,12 @@ interface MatchFoundPayload extends MatchInfo {
 interface GameStartPayload {
   gameId: string;
   prefix: string;
-  players: { userId: string; username: string }[];
+  players: { userId: string; username: string; words?: string[]; score?: number }[];
+  /** Solo al reanudar una partida en curso (reconexión o petición de resincronizar). */
+  resumed?: boolean;
+  gameType?: 'versus' | 'lobby';
+  remainingSeconds?: number;
+  me?: string;
 }
 
 interface WordSubmittedPayload {
@@ -112,6 +117,10 @@ const LOCAL_MULTIPLAYER_DURATION_SECONDS = 60;
 // Debe coincidir con LOBBY_DURATION_MS en server.ts — el servidor es quien
 // realmente decide cuándo termina, esto solo pinta el contador visible.
 const LOBBY_DURATION_SECONDS = 120;
+// La pantalla VS dura VERSUS_INTRO_MS (5 s) en el servidor. Pasado este tiempo sin que
+// llegue la partida, se le pide al servidor su estado, y se repite hasta que llegue.
+const RESYNC_AFTER_MS = 8000;
+const RESYNC_RETRY_MS = 2000;
 
 /** Estado y reglas de todos los modos de partida, ported from
  * client/game/WordGame.ts. Solo/cadena/amigos se arbitran localmente contra
@@ -147,6 +156,7 @@ export class Game {
   readonly matchInfo = this.matchInfoSignal.asReadonly();
 
   private timer: ReturnType<typeof setInterval> | null = null;
+  private resyncTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSubmit: ((result: WordSubmitResult) => void) | null = null;
 
   constructor() {
@@ -159,19 +169,32 @@ export class Game {
         eloIfWin: data.eloIfWin,
         eloIfLose: data.eloIfLose,
       });
+      this.scheduleResync(RESYNC_AFTER_MS);
     });
 
     this.socket.on<GameStartPayload>('gameStart').subscribe((data) => {
+      this.cancelResync();
+      // Al reanudar una partida que ya estaba en marcha, el modo puede no ser el de
+      // esta pantalla (p. ej. tras perder la conexión): lo fija el propio servidor.
+      if (data.gameType) this.modeSignal.set(data.gameType);
+
+      const myId = this.auth.getUserId();
+      const players: GamePlayer[] = data.players.map((p) => ({
+        id: p.userId,
+        userId: p.userId,
+        username: p.username,
+        words: p.words ?? [],
+        score: p.score ?? 0,
+      }));
+
       this.gameIdSignal.set(data.gameId);
       this.prefixSignal.set(data.prefix);
-      this.playersSignal.set(
-        data.players.map((p) => ({ id: p.userId, userId: p.userId, username: p.username, words: [], score: 0 })),
-      );
-      this.wordsSignal.set([]);
-      this.opponentScoreSignal.set(0);
+      this.playersSignal.set(players);
+      this.wordsSignal.set(players.find((p) => p.userId === myId)?.words ?? []);
+      this.opponentScoreSignal.set(players.find((p) => p.userId !== myId)?.score ?? 0);
       this.outcomeSignal.set(null);
       this.statusSignal.set('active');
-      this.startTimer();
+      this.startTimer(data.remainingSeconds);
     });
 
     this.socket.on<WordSubmittedPayload>('wordSubmitted').subscribe((data) => {
@@ -323,6 +346,7 @@ export class Game {
 
   reset(): void {
     this.clearTimer();
+    this.cancelResync();
     this.statusSignal.set('setup');
     this.prefixSignal.set('');
     this.playersSignal.set([]);
@@ -351,7 +375,9 @@ export class Game {
     };
   }
 
-  private startTimer(): void {
+  /** `initialSeconds` solo lo pasa una partida reanudada; si no, arranca con la duración completa. */
+  private startTimer(initialSeconds?: number): void {
+    this.clearTimer();
     const mode = this.modeSignal();
     if (mode === 'solo') {
       this.timeRemainingSignal.set(-1);
@@ -360,7 +386,8 @@ export class Game {
 
     const serverAuthoritative = mode === 'versus' || mode === 'lobby';
     this.timeRemainingSignal.set(
-      mode === 'versus' ? VERSUS_DURATION_SECONDS : mode === 'lobby' ? LOBBY_DURATION_SECONDS : LOCAL_MULTIPLAYER_DURATION_SECONDS,
+      initialSeconds ??
+        (mode === 'versus' ? VERSUS_DURATION_SECONDS : mode === 'lobby' ? LOBBY_DURATION_SECONDS : LOCAL_MULTIPLAYER_DURATION_SECONDS),
     );
     this.timer = setInterval(() => {
       this.timeRemainingSignal.update((t) => t - 1);
@@ -374,6 +401,25 @@ export class Game {
         }
       }
     }, 1000);
+  }
+
+  /** Si tras la pantalla VS la partida no llega (el gameStart se pudo perder con el
+   * socket caído), se le pide al servidor su estado y se reintenta hasta que llegue. */
+  private scheduleResync(delayMs: number): void {
+    this.cancelResync();
+    this.resyncTimer = setTimeout(() => {
+      if (this.statusSignal() !== 'matchmaking' || !this.matchInfoSignal()) return;
+      this.socket.connect();
+      this.socket.emit('game:resync');
+      this.scheduleResync(RESYNC_RETRY_MS);
+    }, delayMs);
+  }
+
+  private cancelResync(): void {
+    if (this.resyncTimer !== null) {
+      clearTimeout(this.resyncTimer);
+      this.resyncTimer = null;
+    }
   }
 
   private clearTimer(): void {
