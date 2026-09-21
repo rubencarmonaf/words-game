@@ -1,18 +1,35 @@
 <div class="ww-landing">
   <div class="ww-grid-tex" aria-hidden="true"></div>
 
-  <header class="ww-nav">
+  <header class="ww-nav" [class.ww-nav--open]="menuOpen()">
     <a routerLink="/" class="ww-brand">
       <img src="/assets/logo.png" alt="WordWars" class="ww-brand-logo" />
     </a>
-    <nav class="ww-nav-links">
-      <a href="#modos">Modos</a>
-      <a href="#como">Cómo se juega</a>
-      <a href="#reto">Reto diario</a>
+    <nav class="ww-nav-links" id="ww-nav-links" aria-label="Secciones">
+      <a href="#modos" (click)="closeMenu()">Modos</a>
+      <a href="#como" (click)="closeMenu()">Cómo se juega</a>
+      <a href="#reto" (click)="closeMenu()">Reto diario</a>
+      <a routerLink="/auth/register" class="ww-nav-cta">Crear cuenta</a>
     </nav>
     <div class="ww-nav-actions">
       <button type="button" class="ww-btn ww-btn--ghost" routerLink="/auth">Iniciar sesión</button>
-      <button type="button" class="ww-btn ww-btn--primary" routerLink="/auth/register">Crear cuenta</button>
+      <button type="button" class="ww-btn ww-btn--primary ww-nav-signup" routerLink="/auth/register">Crear cuenta</button>
+      <button
+        type="button"
+        class="ww-nav-toggle"
+        aria-controls="ww-nav-links"
+        [attr.aria-expanded]="menuOpen()"
+        [attr.aria-label]="menuOpen() ? 'Cerrar menú' : 'Abrir menú'"
+        (click)="toggleMenu()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          @if (menuOpen()) {
+            <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+          } @else {
+            <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
+          }
+        </svg>
+      </button>
     </div>
   </header>
 

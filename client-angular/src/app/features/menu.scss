@@ -34,6 +34,20 @@
   border-radius: var(--ww-radius);
 }
 
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* El icono solo aparece en móvil, donde el texto no cabe junto al perfil. */
+.logout-icon {
+  display: none;
+  width: 20px;
+  height: 20px;
+}
+
 .ww-id-chip {
   display: flex;
   align-items: center;
@@ -228,6 +242,50 @@
   .mode-card--featured & {
     top: 24px;
     right: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  :host {
+    /* abajo hay que dejar sitio al botón flotante de Amigos */
+    padding: 16px 12px 104px;
+  }
+  .menu-content {
+    margin-top: 0;
+    padding: 22px 16px;
+  }
+  .logo-image {
+    height: 48px;
+  }
+  .user-info {
+    gap: 10px;
+    padding: 12px;
+  }
+  .ww-id-chip {
+    min-width: 0;
+    gap: 12px;
+    padding: 2px;
+  }
+  .ww-id-chip-name {
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
+  }
+  .logout-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .logout-icon {
+    display: block;
+  }
+  .logout-label {
+    /* accesible por aria-label; se oculta solo visualmente */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 }
 

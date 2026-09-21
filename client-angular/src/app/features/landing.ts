@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { SiteFooter } from '../shared/components/site-footer';
@@ -16,6 +16,18 @@ export class Landing implements AfterViewInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private observer: IntersectionObserver | null = null;
+
+  /** Menú desplegable del header en móvil; en escritorio los enlaces van siempre visibles. */
+  protected readonly menuOpen = signal(false);
+
+  protected toggleMenu(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected closeMenu(): void {
+    this.menuOpen.set(false);
+  }
 
   protected scrollToHowItWorks(event: Event): void {
     event.preventDefault();
