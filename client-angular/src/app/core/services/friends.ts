@@ -67,6 +67,9 @@ export class Friends {
       });
     });
 
+    // Te eliminó: desaparece de tu lista al momento (sin aviso, igual que al revés).
+    this.socket.on<{ id: string }>('friend:removed').subscribe(({ id }) => this.dropFriend(id));
+
     this.socket.on<{ id: string; username: string }>('friend:accepted').subscribe((friend) => {
       this.refresh().subscribe();
       this.toast.show(`${friend.username} ha aceptado tu solicitud de amistad`, 'success');
@@ -106,6 +109,20 @@ export class Friends {
       }),
       catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))),
     );
+  }
+
+  /** Elimina a un amigo: desaparece de las dos listas (la amistad es una sola). */
+  remove(friendId: string): Observable<ApiResponse<{ message: string }>> {
+    return this.http.delete<ApiResponse<{ message: string }>>(`/api/friends/${friendId}`).pipe(
+      tap((result) => {
+        if (result.success) this.dropFriend(friendId);
+      }),
+      catchError((err: HttpErrorResponse) => of(this.toApiError<{ message: string }>(err))),
+    );
+  }
+
+  private dropFriend(friendId: string): void {
+    this.friendsSignal.update((list) => list.filter((f) => f.id !== friendId));
   }
 
   private setOnline(userId: string, online: boolean): void {

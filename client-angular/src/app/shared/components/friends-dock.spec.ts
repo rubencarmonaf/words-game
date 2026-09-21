@@ -120,6 +120,43 @@ describe('FriendsDock', () => {
     expect(TestBed.inject(Messages).activeFriendId()).toBe('f1');
   });
 
+  it('asks for confirmation before removing a friend, and cancelling keeps them', async () => {
+    await setup();
+    fixture.componentInstance['expanded'].set(true);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.friend-row-remove') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.friend-row') as HTMLElement;
+    expect(row.textContent).toContain('¿Eliminar a Ana?');
+
+    (row.querySelector('.friend-row-confirm-actions .btn-secondary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.friend-row-confirm')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.friend-row')?.textContent).toContain('Ana');
+  });
+
+  it('removes the friend once confirmed, closing their chat', async () => {
+    await setup();
+    fixture.componentInstance['expanded'].set(true);
+    TestBed.inject(Messages).openThread('f1');
+    httpMock.expectOne('/api/messages/f1').flush({ success: true, data: [] });
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.friend-row-remove') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.friend-row-confirm-actions .btn-danger') as HTMLButtonElement).click();
+
+    const req = httpMock.expectOne('/api/friends/f1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ success: true, message: 'Amigo eliminado' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.friend-row')).toBeNull();
+    expect(TestBed.inject(Messages).activeFriendId()).toBeNull();
+  });
+
   it('marks the dock as chat-open while a conversation is active (it hides on mobile)', async () => {
     await setup();
     expect(fixture.nativeElement.querySelector('.friends-dock')?.classList.contains('chat-open')).toBe(false);
