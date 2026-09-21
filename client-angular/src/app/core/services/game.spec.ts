@@ -275,7 +275,7 @@ describe('Game', () => {
       expect(service.players()[0].score).toBe(1);
     });
 
-    it('an opponent word updates the opponent score and shows a toast, without resolving a local submission', () => {
+    it('an opponent word only updates the opponent score: no word, no notice, nothing resolved locally', () => {
       useServiceAuthenticatedAs('u1');
       service.startMatchmaking().subscribe();
       httpMock.expectOne('/api/matchmaking/join').flush({ success: true, message: 'ok' });
@@ -288,11 +288,13 @@ describe('Game', () => {
         ],
       });
 
-      socket.push('wordSubmitted', { word: 'contra', playerId: 'u2', score: 1 });
+      // El servidor no manda la palabra del rival, solo su marcador
+      socket.push('wordSubmitted', { playerId: 'u2', score: 1 });
 
       expect(service.opponentScore()).toBe(1);
       expect(service.words()).toEqual([]);
-      expect(toast.messages()[0]?.text).toBe('Tu rival añadió "contra"');
+      expect(service.players().find((p) => p.userId === 'u2')?.words).toEqual([]);
+      expect(toast.messages()).toEqual([]);
     });
 
     it('submitWord() rejects when the server sends wordRejected', async () => {

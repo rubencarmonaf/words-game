@@ -94,7 +94,8 @@ interface GameStartPayload {
 }
 
 interface WordSubmittedPayload {
-  word: string;
+  /** Solo llega cuando la palabra es mía: del rival el servidor manda únicamente el marcador. */
+  word?: string;
   playerId: string;
   score: number;
 }
@@ -209,19 +210,17 @@ export class Game {
     });
 
     this.socket.on<WordSubmittedPayload>('wordSubmitted').subscribe((data) => {
-      const normalized = data.word.toLowerCase();
-      this.playersSignal.update((players) =>
-        players.map((p) =>
-          p.userId === data.playerId ? { ...p, words: [...p.words, normalized], score: data.score } : p,
-        ),
-      );
-
       if (data.playerId === this.auth.getUserId()) {
+        const normalized = (data.word ?? '').toLowerCase();
+        this.playersSignal.update((players) =>
+          players.map((p) => (p.userId === data.playerId ? { ...p, words: [...p.words, normalized], score: data.score } : p)),
+        );
         this.wordsSignal.update((words) => [...words, normalized]);
         this.resolvePendingSubmit({ success: true, message: `¡"${data.word}" agregada!` });
       } else {
+        // Del rival solo se actualiza el marcador: ni se sabe ni se avisa de qué palabra ha puesto.
+        this.playersSignal.update((players) => players.map((p) => (p.userId === data.playerId ? { ...p, score: data.score } : p)));
         this.opponentScoreSignal.set(data.score);
-        this.toast.show(`Tu rival añadió "${data.word}"`, 'info');
       }
     });
 
