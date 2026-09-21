@@ -91,24 +91,26 @@ gameSchema.methods.end = function(winnerId?: string): void {
 
 // Add word to game
 gameSchema.methods.addWord = function(word: string, playerId: string): boolean {
-  // Check if word is already used
-  if (this.allWords.includes(word.toLowerCase())) {
-    return false;
-  }
+  const normalized = word.toLowerCase();
 
   // Check if word starts with prefix
-  if (!word.toLowerCase().startsWith(this.prefix.toLowerCase())) {
+  if (!normalized.startsWith(this.prefix.toLowerCase())) {
     return false;
   }
 
-  // Add word to game
-  this.allWords.push(word.toLowerCase());
-
-  // Add word to player
+  // Cada jugador puede usar cualquier palabra, aunque otro ya la haya dicho: solo se rechaza
+  // repetir una propia (y quien no juega esta partida no puede añadir palabras).
   const player = this.players.find((p: IGamePlayer) => p.userId === playerId);
-  if (player) {
-    player.words.push(word.toLowerCase());
-    player.score += 1;
+  if (!player || player.words.includes(normalized)) {
+    return false;
+  }
+
+  player.words.push(normalized);
+  player.score += 1;
+
+  // allWords es el conjunto de palabras distintas de la partida (para las estadísticas)
+  if (!this.allWords.includes(normalized)) {
+    this.allWords.push(normalized);
   }
 
   return true;
