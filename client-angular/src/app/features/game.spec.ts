@@ -85,7 +85,7 @@ describe('Game feature', () => {
     expect(component['wordControl'].value).toBe('');
   });
 
-  it('flashes the input and leaves it untouched when a word is rejected', async () => {
+  it('flashes and clears the input when a word is rejected', async () => {
     await setup();
     await startSoloGame();
 
@@ -97,7 +97,7 @@ describe('Game feature', () => {
     await component['submit']();
 
     expect(gameService.words()).toEqual([]);
-    expect(component['wordControl'].value).toBe('xyz');
+    expect(component['wordControl'].value).toBe('');
   });
 
   it('endGame() ends the round and navigates to results', async () => {

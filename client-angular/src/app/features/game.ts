@@ -78,14 +78,15 @@ export class Game implements OnInit {
     const result = await this.game.submitWord(word);
     this.submitting.set(false);
 
+    // Se vacía tanto si se acepta como si se rechaza: dejar la palabra errónea invita a
+    // reenviarla tal cual, y una vez rechazada seguirá siéndolo (no vale reintentar sin cambiarla).
+    this.wordControl.setValue('');
+
     if (result.success) {
       if (result.message) this.toast.show(result.message, 'success');
-      this.wordControl.setValue('');
-    } else {
-      if (result.message) {
-        this.toast.show(result.message, 'error');
-        this.flashWordError();
-      }
+    } else if (result.message) {
+      this.toast.show(result.message, 'error');
+      this.flashWordError();
     }
   }
 
