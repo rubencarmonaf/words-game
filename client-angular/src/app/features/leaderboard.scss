@@ -17,7 +17,9 @@
 
 .leaderboard-content > header {
   position: relative;
-  padding-top: 38px;
+  /* Mismo valor que daily-challenge/lobby: deja hueco de verdad bajo "Volver"
+     antes de que empiece el título, en vez de quedar pegados. */
+  padding-top: 50px;
   margin-bottom: 20px;
 }
 .back-btn {
@@ -122,7 +124,18 @@ header p {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  overflow-wrap: anywhere;
+}
+/* El nombre es el único elemento elástico de la fila: se trunca con puntos
+   suspensivos en vez de partirse letra a letra cuando no cabe. La insignia de
+   rango nunca se encoge (antes se comprimía hasta girar el texto en vertical). */
+.leaderboard-username {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leaderboard-name ww-tier-badge {
+  flex-shrink: 0;
 }
 
 .leaderboard-words {
@@ -131,6 +144,29 @@ header p {
   font-weight: 700;
   font-size: 0.88rem;
   color: var(--ww-text);
+}
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .leaderboard-content {
+    padding: 22px 16px;
+  }
+  .leaderboard-tab {
+    padding: 10px 12px;
+    font-size: 0.88rem;
+  }
+  .leaderboard-row {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  /* Con tan poco ancho, hasta un nombre corto + la insignia ya se lo comen
+     todo: la insignia se oculta aquí y se deja solo en el perfil, donde sí
+     tiene sitio de sobra. */
+  .leaderboard-name ww-tier-badge {
+    display: none;
+  }
 }
 
 .leaderboard-pinned {

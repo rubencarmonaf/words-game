@@ -512,3 +512,15 @@ header p {
     flex-direction: column;
   }
 }
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .daily-challenge-content {
+    padding: 22px 16px;
+  }
+  h1 {
+    font-size: 1.7rem;
+  }
+}

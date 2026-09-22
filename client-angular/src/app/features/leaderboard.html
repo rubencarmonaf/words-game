@@ -52,7 +52,7 @@
           <span class="leaderboard-rank" [class.leaderboard-rank--first]="entry.rank === 1">{{ entry.rank }}</span>
           <ww-avatar [options]="entry.avatar" size="sm" />
           <span class="leaderboard-name">
-            {{ entry.username }}
+            <span class="leaderboard-username">{{ entry.username }}</span>
             <ww-tier-badge [elo]="entry.elo" />
           </span>
           <span class="leaderboard-words">{{ entry.wordCount }} palabras</span>
@@ -67,7 +67,7 @@
             <span class="leaderboard-rank">{{ mine.rank }}</span>
             <ww-avatar [options]="mine.avatar" size="sm" />
             <span class="leaderboard-name">
-              {{ mine.username }}
+              <span class="leaderboard-username">{{ mine.username }}</span>
               <ww-tier-badge [elo]="mine.elo" />
             </span>
             <span class="leaderboard-words">{{ mine.wordCount }} palabras</span>

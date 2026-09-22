@@ -199,8 +199,22 @@ h2 {
 
 .button-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 15px;
   justify-content: center;
+
+  .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .results-content {
+    padding: 22px 16px;
+  }
 }
 
 /* ---------- Momento de victoria: llegada a la terminal ---------- */
