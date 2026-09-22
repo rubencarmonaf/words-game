@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { todayInSpain } from '../utils/date';
 
 export interface IDailyChallengeCompletion extends Document {
   _id: string;
@@ -40,7 +41,7 @@ dailyChallengeCompletionSchema.index({ userId: 1, date: 1 }, { unique: true });
 
 // Static method to check if user has completed today's challenge
 dailyChallengeCompletionSchema.statics.hasUserCompletedToday = async function(userId: string): Promise<boolean> {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayInSpain();
   const completion = await this.findOne({ userId, date: today });
   return !!completion;
 };
@@ -52,8 +53,10 @@ dailyChallengeCompletionSchema.statics.getStreak = async function(userId: string
   const rows = await this.find({ userId }, 'date').sort({ date: -1 }).limit(400).lean();
   const dates = new Set(rows.map((r: any) => r.date as string));
 
+  // cursor es un día de calendario "en blanco" (medianoche UTC de esa fecha), solo para poder
+  // restarle días con setUTCDate; no representa ningún instante real ni huso horario.
   const fmt = (d: Date): string => d.toISOString().split('T')[0];
-  const cursor = new Date();
+  const cursor = new Date(`${todayInSpain()}T00:00:00Z`);
   if (!dates.has(fmt(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1);
 
   let streak = 0;
