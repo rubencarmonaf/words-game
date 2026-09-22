@@ -8,6 +8,10 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   cursor: pointer;
+  /* Sin esto, un botón sin sitio se encoge y su propio texto se parte en varias líneas en
+     vez de que sea la fila entera la que baje a la siguiente línea (ver .ww-btn, que ya lo
+     tenía) — la causa real de los botones "con letras enormes" apretados en móvil. */
+  white-space: nowrap;
   transition:
     background-color 0.18s ease,
     box-shadow 0.18s ease,

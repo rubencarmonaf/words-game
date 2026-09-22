@@ -62,3 +62,19 @@
   background: var(--ww-accent);
   color: var(--ww-accent-ink);
 }
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .auth-content {
+    padding: 22px 16px;
+  }
+  .back-btn {
+    left: 16px;
+    top: 16px;
+  }
+  .logo-container {
+    margin-top: 30px;
+  }
+}

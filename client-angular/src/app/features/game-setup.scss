@@ -14,8 +14,20 @@
   color: var(--ww-text);
 }
 
-h2 {
+/* Mismo patrón "Volver" + título que daily-challenge/lobby: el padding-top del
+   header reserva sitio para el botón absoluto antes de que empiece el título. */
+header {
+  position: relative;
   text-align: center;
+  padding-top: 50px;
+}
+.back-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+h2 {
   margin-bottom: 30px;
   font-family: var(--ww-serif);
   font-weight: 700;
@@ -47,7 +59,24 @@ h2 {
 
 .button-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 15px;
   justify-content: center;
   margin-top: 30px;
+
+  .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .setup-content {
+    padding: 22px 16px;
+  }
+  h2 {
+    font-size: 1.4rem;
+  }
 }

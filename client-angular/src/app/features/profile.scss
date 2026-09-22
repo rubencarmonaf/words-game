@@ -161,5 +161,21 @@ a.ww-stat-card {
 }
 .ww-profile-edit-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+@media (max-width: 560px) {
+  :host {
+    padding: 16px 12px;
+  }
+  .profile-content {
+    padding: 22px 16px;
+  }
+  .ww-profile-top {
+    gap: 14px;
+  }
+  .ww-profile-emblem {
+    --ww-emblem-size: 72px;
+  }
 }
