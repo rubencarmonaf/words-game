@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IGame, IGamePlayer, GameStats } from '../types';
+import { stripAccents } from '../utils/text';
 
 const gamePlayerSchema = new Schema<IGamePlayer>({
   userId: {
@@ -92,16 +93,19 @@ gameSchema.methods.end = function(winnerId?: string): void {
 // Add word to game
 gameSchema.methods.addWord = function(word: string, playerId: string): boolean {
   const normalized = word.toLowerCase();
+  // Prefijo y repetidas ignoran los acentos: "invierno" vale para el prefijo "ín", y da igual
+  // con qué acentos se haya dicho antes una palabra para contar como la misma.
+  const normalizedKey = stripAccents(normalized);
 
   // Check if word starts with prefix
-  if (!normalized.startsWith(this.prefix.toLowerCase())) {
+  if (!normalizedKey.startsWith(stripAccents(this.prefix.toLowerCase()))) {
     return false;
   }
 
   // Cada jugador puede usar cualquier palabra, aunque otro ya la haya dicho: solo se rechaza
   // repetir una propia (y quien no juega esta partida no puede añadir palabras).
   const player = this.players.find((p: IGamePlayer) => p.userId === playerId);
-  if (!player || player.words.includes(normalized)) {
+  if (!player || player.words.some((w: string) => stripAccents(w) === normalizedKey)) {
     return false;
   }
 
@@ -109,7 +113,7 @@ gameSchema.methods.addWord = function(word: string, playerId: string): boolean {
   player.score += 1;
 
   // allWords es el conjunto de palabras distintas de la partida (para las estadísticas)
-  if (!this.allWords.includes(normalized)) {
+  if (!this.allWords.some((w: string) => stripAccents(w) === normalizedKey)) {
     this.allWords.push(normalized);
   }
 

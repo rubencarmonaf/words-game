@@ -23,6 +23,7 @@ import Message from './models/Message';
 import { dictionaryService } from './utils/dictionary';
 import { sendPasswordResetEmail, sendVerificationEmail, isEmailConfigured, warnAboutEmailConfig } from './utils/email';
 import { normalizeEmail, isValidEmailFormat, isDisposableEmail, domainCanReceiveMail } from './utils/emailAddress';
+import { stripAccents } from './utils/text';
 
 // Import types
 import { 
@@ -1189,8 +1190,8 @@ app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, re
     for (const word of words) {
       if (typeof word === 'string' && word.length >= 3) {
         const upperWord = word.toUpperCase();
-        // Check if word starts with the required prefix
-        if (upperWord.startsWith(challenge.prefix)) {
+        // Check if word starts with the required prefix (ignoring accents)
+        if (stripAccents(upperWord).startsWith(stripAccents(challenge.prefix))) {
           // Validate with dictionary service
           const isValid = await dictionaryService.validateWord(upperWord);
           if (isValid) {
@@ -1496,8 +1497,11 @@ io.on('connection', (socket) => {
 
     const { gameDoc } = active;
     const word = String(data.word || '').toLowerCase().trim();
+    // El prefijo y las repeticiones no distinguen acentos: "invierno" cuenta aunque el
+    // prefijo sea "ín", y repetir "camion" tras "camión" (o al revés) sigue siendo repetir.
+    const wordKey = stripAccents(word);
 
-    if (!word || !word.startsWith(gameDoc.prefix.toLowerCase())) {
+    if (!word || !wordKey.startsWith(stripAccents(gameDoc.prefix.toLowerCase()))) {
       socket.emit('wordRejected', { message: `La palabra debe empezar con "${gameDoc.prefix}"` });
       return;
     }
@@ -1508,7 +1512,7 @@ io.on('connection', (socket) => {
       socket.emit('error', 'No participas en esta partida');
       return;
     }
-    if (me.words.includes(word)) {
+    if (me.words.some((w: string) => stripAccents(w) === wordKey)) {
       socket.emit('wordRejected', { message: 'Ya has usado esta palabra' });
       return;
     }
