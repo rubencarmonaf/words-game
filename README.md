@@ -133,6 +133,11 @@ En Atlas hay que permitir el acceso de red desde Render (*Network Access*). En e
 plan gratuito el servicio se duerme tras un rato sin tráfico y pierde el estado
 en memoria; para uso real conviene un plan de pago.
 
+**Que no se duerma por inactividad:** `.github/workflows/keep-alive.yml` pide
+`/api/health` cada 10 min (Actions es gratis en un repo público). No evita el
+reinicio al desplegar o por mantenimiento de Render, solo el de inactividad. Si
+cambias de URL o de plan de pago, actualiza o borra ese workflow.
+
 ### Verificación de email
 Al registrarse se envía un enlace de un solo uso (24 h) a la dirección indicada y la cuenta no puede iniciar sesión hasta abrirlo. Las cuentas sin verificar se borran solas a las 48 h, y no reservan el email: su dueño real puede registrarse encima.
 
