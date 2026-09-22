@@ -24,6 +24,7 @@ import { dictionaryService } from './utils/dictionary';
 import { sendPasswordResetEmail, sendVerificationEmail, isEmailConfigured, warnAboutEmailConfig } from './utils/email';
 import { normalizeEmail, isValidEmailFormat, isDisposableEmail, domainCanReceiveMail } from './utils/emailAddress';
 import { stripAccents } from './utils/text';
+import { msUntilNextMidnightInSpain } from './utils/date';
 
 // Import types
 import { 
@@ -1158,14 +1159,9 @@ app.get('/api/daily-challenge', authenticateToken, async (req: any, res) => {
       rankInfo = await myTodayRank(challenge.date, req.user.userId);
     }
 
-    // Calculate time until next challenge (next day at 00:00)
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-
-    const timeUntilNext = tomorrow.getTime() - now.getTime();
-    const totalSeconds = Math.floor(timeUntilNext / 1000);
+    // Calculate time until next challenge — medianoche en España, no en el huso horario del
+    // servidor (en Render corre en UTC; en verano son dos horas de diferencia).
+    const totalSeconds = Math.floor(msUntilNextMidnightInSpain() / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { todayInSpain } from '../utils/date';
 
 export interface IDailyChallenge extends Document {
   _id: string;
@@ -28,8 +29,8 @@ const dailyChallengeSchema = new Schema<IDailyChallenge>({
 
 // Static method to get today's challenge
 dailyChallengeSchema.statics.getTodaysChallenge = async function() {
-  const today = new Date().toISOString().split('T')[0];
-  
+  const today = todayInSpain();
+
   let challenge = await this.findOne({ date: today });
   
   if (!challenge) {
