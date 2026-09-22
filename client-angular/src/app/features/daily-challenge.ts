@@ -30,6 +30,9 @@ export class DailyChallenge implements OnInit, OnDestroy {
   protected readonly words = signal<string[]>([]);
   protected readonly submitting = signal(false);
   protected readonly shakeWord = signal(false);
+  /** Tu posición de hoy en el ranking global; solo tiene valor una vez completado el reto. */
+  protected readonly rank = signal<number | null>(null);
+  protected readonly totalPlayers = signal<number | null>(null);
 
   protected readonly wordControl = new FormControl('', { nonNullable: true });
   private readonly typedWord = toSignal(this.wordControl.valueChanges, {
@@ -57,6 +60,8 @@ export class DailyChallenge implements OnInit, OnDestroy {
       if (result.data.isCompleted) {
         this.isCompleted.set(true);
         this.words.set(result.data.wordsFound ?? []);
+        this.rank.set(result.data.rank ?? null);
+        this.totalPlayers.set(result.data.totalPlayers ?? null);
       }
     });
   }
@@ -123,6 +128,8 @@ export class DailyChallenge implements OnInit, OnDestroy {
     if (result.success && result.data) {
       this.toast.show(result.data.message, 'success');
       this.isCompleted.set(true);
+      this.rank.set(result.data.rank);
+      this.totalPlayers.set(result.data.totalPlayers);
     } else {
       this.toast.show(result.message ?? 'Error completando el reto', 'error');
     }

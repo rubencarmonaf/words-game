@@ -1,0 +1,85 @@
+<div class="leaderboard-content">
+  <header>
+    <button type="button" class="back-btn" routerLink="/menu">Volver</button>
+    <h1>Ranking</h1>
+    <p>Reto diario de hoy · palabras encontradas, desempate por quien terminó antes</p>
+  </header>
+
+  <div class="leaderboard-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="leaderboard-tab"
+      [class.active]="scope() === 'global'"
+      [attr.aria-selected]="scope() === 'global'"
+      (click)="switchScope('global')"
+    >
+      Global
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="leaderboard-tab"
+      [class.active]="scope() === 'friends'"
+      [attr.aria-selected]="scope() === 'friends'"
+      (click)="switchScope('friends')"
+    >
+      Amigos
+    </button>
+  </div>
+
+  @if (loading()) {
+    <p class="leaderboard-status">Cargando…</p>
+  } @else if (entries().length === 0) {
+    <div class="leaderboard-empty">
+      <p>
+        @if (scope() === 'friends') {
+          Ninguno de tus amigos ha completado el reto de hoy todavía.
+        } @else {
+          Nadie ha completado el reto de hoy todavía. ¡Sé el primero!
+        }
+      </p>
+      @if (!me()) {
+        <a routerLink="/daily-challenge" class="btn btn-primary">Jugar reto diario</a>
+      }
+    </div>
+  } @else {
+    <p class="leaderboard-total">{{ totalPlayers() }} {{ totalPlayers() === 1 ? 'jugador' : 'jugadores' }} hoy</p>
+
+    <div class="leaderboard-list">
+      @for (entry of entries(); track entry.userId) {
+        <div class="leaderboard-row" [class.leaderboard-row--me]="entry.userId === myUserId">
+          <span class="leaderboard-rank" [class.leaderboard-rank--first]="entry.rank === 1">{{ entry.rank }}</span>
+          <ww-avatar [options]="entry.avatar" size="sm" />
+          <span class="leaderboard-name">
+            {{ entry.username }}
+            <ww-tier-badge [elo]="entry.elo" />
+          </span>
+          <span class="leaderboard-words">{{ entry.wordCount }} palabras</span>
+        </div>
+      }
+    </div>
+
+    @if (showPinnedMe(); as _) {
+      @if (me(); as mine) {
+        <div class="leaderboard-pinned">
+          <div class="leaderboard-row leaderboard-row--me">
+            <span class="leaderboard-rank">{{ mine.rank }}</span>
+            <ww-avatar [options]="mine.avatar" size="sm" />
+            <span class="leaderboard-name">
+              {{ mine.username }}
+              <ww-tier-badge [elo]="mine.elo" />
+            </span>
+            <span class="leaderboard-words">{{ mine.wordCount }} palabras</span>
+          </div>
+        </div>
+      }
+    }
+
+    @if (!me()) {
+      <div class="leaderboard-cta">
+        <a routerLink="/daily-challenge" class="btn btn-primary">Jugar el reto de hoy</a>
+      </div>
+    }
+  }
+</div>
