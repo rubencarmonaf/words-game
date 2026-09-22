@@ -107,6 +107,41 @@ describe('DailyChallenge feature', () => {
     expect(component['wordControl'].value).toBe('');
   });
 
+  it('submit() ignores accents when checking the prefix', async () => {
+    await setup();
+    fixture = TestBed.createComponent(DailyChallenge);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    flushStatus();
+    component['start']();
+
+    component['wordControl'].setValue('Máscara');
+    const submitPromise = component['submit']();
+    httpMock.expectOne('/api/validate-word').flush({ success: true, data: { valid: true } });
+    await submitPromise;
+
+    expect(component['words']()).toEqual(['máscara']);
+  });
+
+  it('submit() ignores accents when checking for a repeated word', async () => {
+    await setup();
+    fixture = TestBed.createComponent(DailyChallenge);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    flushStatus();
+    component['start']();
+
+    component['wordControl'].setValue('maíz');
+    const first = component['submit']();
+    httpMock.expectOne('/api/validate-word').flush({ success: true, data: { valid: true } });
+    await first;
+
+    component['wordControl'].setValue('maiz');
+    await component['submit']();
+
+    expect(component['words']()).toEqual(['maíz']);
+  });
+
   it('end() with fewer than 3 words shows an error and returns to the start state', async () => {
     await setup();
     fixture = TestBed.createComponent(DailyChallenge);
