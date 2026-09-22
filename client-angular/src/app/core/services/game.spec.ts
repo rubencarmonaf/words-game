@@ -82,6 +82,27 @@ describe('Game', () => {
     expect(second).toEqual({ success: false, message: 'Ya has usado esta palabra' });
   });
 
+  it('submitWord() ignores accents when checking the prefix', async () => {
+    service.setMode('solo');
+    const promise = service.start({ prefix: 'ín', players: ['Jugador 1'], playerCount: 1 });
+    httpMock.expectOne('/api/clear-cache').flush({ success: true });
+    await promise;
+
+    const result = service.submitWord('invierno');
+    httpMock.expectOne('/api/validate-word').flush({ success: true, data: { valid: true } });
+    expect(await result).toEqual({ success: true, message: '¡"invierno" agregada!' });
+  });
+
+  it('submitWord() ignores accents when checking for a repeated word', async () => {
+    await start('solo', ['Jugador 1']);
+    const first = service.submitWord('detrás');
+    httpMock.expectOne('/api/validate-word').flush({ success: true, data: { valid: true } });
+    await first;
+
+    const second = await service.submitWord('detras');
+    expect(second).toEqual({ success: false, message: 'Ya has usado esta palabra' });
+  });
+
   it('submitWord() rejects a word the dictionary marks invalid', async () => {
     await start('solo', ['Jugador 1']);
     const promise = service.submitWord('dexyz');

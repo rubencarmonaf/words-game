@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DailyChallenge as DailyChallengeService } from '../core/services/daily-challenge';
 import { Toast } from '../shared/services/toast';
+import { stripAccents } from '../core/utils/text';
 
 const CHALLENGE_DURATION_SECONDS = 120;
 const MIN_WORDS = 3;
@@ -82,12 +83,13 @@ export class DailyChallenge implements OnInit, OnDestroy {
     const word = this.wordControl.value.trim().toLowerCase();
     if (!word) return;
 
-    if (!word.startsWith(this.prefix().toLowerCase())) {
+    const wordKey = stripAccents(word);
+    if (!wordKey.startsWith(stripAccents(this.prefix().toLowerCase()))) {
       this.toast.show(`La palabra debe empezar con "${this.prefix()}"`, 'error');
       this.flashWordError();
       return;
     }
-    if (this.words().includes(word)) {
+    if (this.words().some((w) => stripAccents(w) === wordKey)) {
       this.toast.show('Ya has usado esta palabra', 'error');
       this.flashWordError();
       return;

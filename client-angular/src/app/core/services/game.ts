@@ -5,6 +5,7 @@ import type { ApiResponse, AvatarOptions, WordValidationResponse } from '@shared
 import { Auth } from './auth';
 import { Socket } from './socket';
 import { Toast } from '../../shared/services/toast';
+import { stripAccents } from '../utils/text';
 
 // 'friendly' is a local hotseat game (custom player names, same device, no
 // networking — see game-setup.ts's "Juego con Amigos"). 'lobby' is the real
@@ -311,10 +312,12 @@ export class Game {
     const normalized = trimmed.toLowerCase();
     if (!normalized) return { success: false };
 
-    if (!normalized.startsWith(this.prefixSignal().toLowerCase())) {
+    // El prefijo exigido y las repetidas ignoran los acentos, igual que hace el servidor.
+    const normalizedKey = stripAccents(normalized);
+    if (!normalizedKey.startsWith(stripAccents(this.prefixSignal().toLowerCase()))) {
       return { success: false, message: `La palabra debe empezar con "${this.prefixSignal()}"` };
     }
-    if (this.wordsSignal().includes(normalized)) {
+    if (this.wordsSignal().some((w) => stripAccents(w) === normalizedKey)) {
       return { success: false, message: 'Ya has usado esta palabra' };
     }
 
