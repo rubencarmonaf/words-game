@@ -15,6 +15,9 @@ export interface DailyChallengeStatus {
   isCompleted: boolean;
   wordsFound: string[];
   timeUntilNext: TimeUntilNext;
+  /** Solo cuando isCompleted: tu posición de hoy en el ranking global. */
+  rank?: number;
+  totalPlayers?: number;
 }
 
 interface DailyChallengeApiResponse {
@@ -22,11 +25,15 @@ interface DailyChallengeApiResponse {
   isCompleted: boolean;
   wordsFound?: string[];
   timeUntilNext: TimeUntilNext;
+  rank?: number;
+  totalPlayers?: number;
 }
 
 interface CompleteResponse {
   wordsFound: string[];
   message: string;
+  rank: number;
+  totalPlayers: number;
 }
 
 /** Estado y llamadas del reto diario, ported from AuthManager's
@@ -49,6 +56,8 @@ export class DailyChallenge {
             isCompleted: result.data.isCompleted,
             wordsFound: result.data.wordsFound ?? [],
             timeUntilNext: result.data.timeUntilNext,
+            rank: result.data.rank,
+            totalPlayers: result.data.totalPlayers,
           });
         }
       }),
@@ -61,7 +70,15 @@ export class DailyChallenge {
       tap((result) => {
         if (result.success) {
           this.statusSignal.update((status) =>
-            status ? { ...status, isCompleted: true, wordsFound: result.data?.wordsFound ?? status.wordsFound } : status,
+            status
+              ? {
+                  ...status,
+                  isCompleted: true,
+                  wordsFound: result.data?.wordsFound ?? status.wordsFound,
+                  rank: result.data?.rank,
+                  totalPlayers: result.data?.totalPlayers,
+                }
+              : status,
           );
         }
       }),

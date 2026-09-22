@@ -116,6 +116,14 @@ export const routes: Routes = [
       import('./features/daily-challenge').then((m) => m.DailyChallenge),
   },
   {
+    path: 'leaderboard',
+    title: 'Ranking',
+    data: { seo: { noindex: true } },
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/leaderboard').then((m) => m.Leaderboard),
+  },
+  {
     path: 'profile',
     title: 'Perfil',
     data: { seo: { noindex: true } },

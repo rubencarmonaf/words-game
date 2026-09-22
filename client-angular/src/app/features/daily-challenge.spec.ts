@@ -22,13 +22,17 @@ describe('DailyChallenge feature', () => {
     toast = TestBed.inject(Toast);
   }
 
-  function flushStatus(overrides: { isCompleted?: boolean; wordsFound?: string[] } = {}): void {
+  function flushStatus(
+    overrides: { isCompleted?: boolean; wordsFound?: string[]; rank?: number; totalPlayers?: number } = {},
+  ): void {
     httpMock.expectOne('/api/daily-challenge').flush({
       success: true,
       data: {
         challenge: { _id: '1', date: '2026-09-16', prefix: 'MA', createdAt: '2026-09-16T00:00:00Z' },
         isCompleted: overrides.isCompleted ?? false,
         wordsFound: overrides.wordsFound,
+        rank: overrides.rank,
+        totalPlayers: overrides.totalPlayers,
         timeUntilNext: { hours: 5, minutes: 0, seconds: 0, totalSeconds: 18000 },
       },
     });
@@ -170,11 +174,32 @@ describe('DailyChallenge feature', () => {
     const endPromise = component['end']();
     httpMock.expectOne('/api/daily-challenge/complete').flush({
       success: true,
-      data: { wordsFound: ['mar', 'mano', 'malo'], message: '¡Reto completado! Encontraste 3 palabras.' },
+      data: { wordsFound: ['mar', 'mano', 'malo'], message: '¡Reto completado! Encontraste 3 palabras.', rank: 4, totalPlayers: 30 },
     });
     await endPromise;
 
     expect(component['isCompleted']()).toBe(true);
     expect(toast.messages()[0]?.text).toBe('¡Reto completado! Encontraste 3 palabras.');
+    expect(component['rank']()).toBe(4);
+    expect(component['totalPlayers']()).toBe(30);
+
+    fixture.detectChanges();
+    const rankText = fixture.nativeElement.querySelector('.daily-rank')?.textContent ?? '';
+    expect(rankText).toContain('#4');
+    expect(rankText).toContain('30');
+    expect(fixture.nativeElement.querySelector('a[href="/leaderboard"]')).toBeTruthy();
+  });
+
+  it('shows the rank from a previous completion when reloading the page', async () => {
+    await setup();
+    fixture = TestBed.createComponent(DailyChallenge);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    flushStatus({ isCompleted: true, wordsFound: ['mar', 'mano', 'malo'], rank: 7, totalPlayers: 50 });
+    fixture.detectChanges();
+
+    expect(component['rank']()).toBe(7);
+    expect(component['totalPlayers']()).toBe(50);
+    expect(fixture.nativeElement.querySelector('.daily-rank')?.textContent).toContain('#7');
   });
 });

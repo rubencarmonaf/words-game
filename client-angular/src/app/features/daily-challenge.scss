@@ -466,8 +466,27 @@ header p {
   }
 }
 
+.daily-rank {
+  margin-top: 16px;
+  font-size: 0.92rem;
+  color: var(--ww-muted);
+
+  strong {
+    color: var(--line-amber);
+    font-family: var(--ww-mono);
+  }
+}
+
 .daily-completed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
   margin-top: 20px;
+
+  .btn {
+    text-decoration: none;
+  }
 }
 
 @media (max-width: 768px) {

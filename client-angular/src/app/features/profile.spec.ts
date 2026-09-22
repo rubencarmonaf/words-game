@@ -59,6 +59,50 @@ describe('Profile', () => {
     expect(component['form'].controls.username.value).toBe('kaven');
     expect(component['editing']()).toBe(true);
   });
+
+  it('shows the daily-challenge streak as a link to the leaderboard', () => {
+    const link = fixture.nativeElement.querySelector('a.ww-stat-card') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/leaderboard');
+  });
+});
+
+describe('Profile streak value', () => {
+  it('shows 0 when the server has not sent a streak (e.g. an older cached response)', async () => {
+    await TestBed.configureTestingModule({
+      imports: [Profile],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Profile);
+    fixture.detectChanges();
+
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/profile')
+      .flush({ success: true, data: { id: '1', username: 'kaven', elo: 1200, gamesPlayed: 0, gamesWon: 0, winRate: 0, avatar: DEFAULT_AVATAR } });
+    fixture.detectChanges();
+
+    const value = fixture.nativeElement.querySelector('a.ww-stat-card .ww-stat-card-value');
+    expect(value.textContent.trim()).toBe('0');
+  });
+
+  it('shows the real streak when the server sends one', async () => {
+    await TestBed.configureTestingModule({
+      imports: [Profile],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Profile);
+    fixture.detectChanges();
+
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/profile')
+      .flush({
+        success: true,
+        data: { id: '1', username: 'kaven', elo: 1200, gamesPlayed: 0, gamesWon: 0, winRate: 0, avatar: DEFAULT_AVATAR, dailyStreak: 12 },
+      });
+    fixture.detectChanges();
+
+    const value = fixture.nativeElement.querySelector('a.ww-stat-card .ww-stat-card-value');
+    expect(value.textContent.trim()).toBe('12');
+  });
 });
 
 describe('Profile of a friend (/profile/:userId)', () => {

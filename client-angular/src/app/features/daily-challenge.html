@@ -39,7 +39,13 @@
           <span class="completed-word" [style.animation-delay.ms]="wordDelay(i)">{{ word }}</span>
         }
       </div>
+      @if (rank(); as r) {
+        <p class="daily-rank">
+          Hoy eres <strong>#{{ r }}</strong> de {{ totalPlayers() }} en el ranking global.
+        </p>
+      }
       <div class="daily-completed-actions">
+        <a routerLink="/leaderboard" class="btn btn-secondary">Ver ranking</a>
         <button type="button" class="btn btn-primary" routerLink="/menu">Volver al menú</button>
       </div>
     </div>
