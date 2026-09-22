@@ -45,4 +45,23 @@ dailyChallengeCompletionSchema.statics.hasUserCompletedToday = async function(us
   return !!completion;
 };
 
+// Días seguidos completando el reto: cuenta hacia atrás desde hoy. Si hoy aún no se ha jugado
+// la racha no se da por rota todavía (sigue "viva" mientras quede el día) — solo se rompe si
+// ayer tampoco se jugó. 400 días de tope: de sobra para cualquier racha real, acota la consulta.
+dailyChallengeCompletionSchema.statics.getStreak = async function(userId: string): Promise<number> {
+  const rows = await this.find({ userId }, 'date').sort({ date: -1 }).limit(400).lean();
+  const dates = new Set(rows.map((r: any) => r.date as string));
+
+  const fmt = (d: Date): string => d.toISOString().split('T')[0];
+  const cursor = new Date();
+  if (!dates.has(fmt(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1);
+
+  let streak = 0;
+  while (dates.has(fmt(cursor))) {
+    streak++;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
+};
+
 export default mongoose.model<IDailyChallengeCompletion>('DailyChallengeCompletion', dailyChallengeCompletionSchema);

@@ -38,6 +38,10 @@ export interface IUserPublic {
   gamesWon: number;
   winRate: number;
   avatar: AvatarOptions;
+  /** Días seguidos completando el reto diario. Solo lo llevan las respuestas de perfil
+   * (propio o de un amigo): es caro de calcular y el resto de sitios que devuelven un
+   * IUserPublic (login, registro...) no lo necesitan. */
+  dailyStreak?: number;
 }
 
 // Game Types
@@ -229,6 +233,39 @@ export interface DailyChallengeResponse {
     seconds: number;
     totalSeconds: number;
   };
+  /** Solo cuando isCompleted: la posición de hoy entre todos los que ya jugaron. */
+  rank?: number;
+  totalPlayers?: number;
+}
+
+export interface DailyChallengeCompleteResponse {
+  wordsFound: string[];
+  message: string;
+  rank: number;
+  totalPlayers: number;
+}
+
+export type LeaderboardScope = 'global' | 'friends';
+
+export interface DailyLeaderboardEntry {
+  userId: string;
+  username: string;
+  avatar: AvatarOptions;
+  elo: number;
+  wordCount: number;
+  completedAt: string;
+  rank: number;
+}
+
+export interface DailyLeaderboardResponse {
+  date: string;
+  scope: LeaderboardScope;
+  totalPlayers: number;
+  /** Los mejores de hoy (tope acotado en el servidor), en orden. */
+  entries: DailyLeaderboardEntry[];
+  /** Mi propia fila de hoy; null si aún no he completado el reto. Puede no estar entre
+   * `entries` si mi posición queda fuera del límite — por eso se manda aparte. */
+  me: DailyLeaderboardEntry | null;
 }
 
 // Socket Extensions
