@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { DictionaryService } from '../types';
+import { stripAccents } from './text';
 
 // No local dictionary - using external APIs only
 
@@ -8,10 +9,12 @@ export class SpanishDictionaryService implements DictionaryService {
 
   async validateWord(word: string): Promise<boolean> {
     const normalizedWord = word.toLowerCase().trim();
-    
-    // Check cache first
-    if (this.cache.has(normalizedWord)) {
-      return this.cache.get(normalizedWord)!;
+    // La caché ignora los acentos: "camion" y "camión" son la misma consulta, y así una
+    // resuelve la caché para la otra en vez de gastar una petición a la RAE por cada una.
+    const cacheKey = stripAccents(normalizedWord);
+
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
     }
 
     try {
@@ -19,14 +22,14 @@ export class SpanishDictionaryService implements DictionaryService {
       // Try RAE API (primary method)
       const isValid = await this.validateWithRAEAPI(normalizedWord);
       console.log(`RAE API result for "${normalizedWord}":`, isValid);
-      this.cache.set(normalizedWord, isValid);
+      this.cache.set(cacheKey, isValid);
       return isValid;
     } catch (error) {
       console.warn(`RAE API failed for word "${normalizedWord}":`, error);
-      
+
       // If API fails, return false (no fallback)
       console.log(`No validation available for "${normalizedWord}"`);
-      this.cache.set(normalizedWord, false);
+      this.cache.set(cacheKey, false);
       return false;
     }
   }
@@ -51,7 +54,7 @@ export class SpanishDictionaryService implements DictionaryService {
       // Check if the response contains valid word data
       if (response.status === 200 && response.data) {
         const data = response.data;
-        
+
         // RAE API returns { ok: boolean, data: WordEntry } for success
         // or { ok: false, error: "NOT_FOUND" } for not found
         if (data.ok === true && data.data) {
@@ -59,23 +62,33 @@ export class SpanishDictionaryService implements DictionaryService {
           return true;
         } else if (data.ok === false && data.error === "NOT_FOUND") {
           console.log(`Word "${word}" not found in RAE`);
-          return false;
+          return this.matchesSuggestionIgnoringAccents(word, data.suggestions);
         }
       }
-      
+
       return false;
     } catch (error) {
       // If it's a 404, the word doesn't exist
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
           console.log(`Word "${word}" not found (404)`);
-          return false;
+          // La RAE devuelve la palabra bien escrita como sugerencia (p. ej. "camion" ->
+          // "camión"): si es la misma palabra sin los acentos, se da por válida.
+          return this.matchesSuggestionIgnoringAccents(word, error.response?.data?.suggestions);
         }
       }
-      
+
       // For other errors (network, timeout, etc.), throw to use fallback
       throw error;
     }
+  }
+
+  private matchesSuggestionIgnoringAccents(word: string, suggestions: unknown): boolean {
+    if (!Array.isArray(suggestions)) return false;
+    const target = stripAccents(word);
+    const match = suggestions.find((s) => typeof s === 'string' && stripAccents(s.toLowerCase()) === target);
+    if (match) console.log(`Word "${word}" accepted: matches RAE suggestion "${match}" ignoring accents`);
+    return Boolean(match);
   }
 
   // Add word to cache (for testing or manual additions)
