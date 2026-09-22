@@ -37,7 +37,11 @@ import {
   AuthenticatedSocket,
   SocketEvents,
   DailyChallengeResponse,
-  sanitizeAvatarOptions
+  LeaderboardScope,
+  DailyLeaderboardEntry,
+  DailyLeaderboardResponse,
+  sanitizeAvatarOptions,
+  DEFAULT_AVATAR
 } from './types';
 
 dotenv.config();
@@ -598,7 +602,8 @@ app.get('/api/profile', authenticateToken, async (req: any, res) => {
       return;
     }
 
-    res.json({ success: true, data: user.toPublicJSON() });
+    const dailyStreak = await (DailyChallengeCompletion as any).getStreak(user._id.toString());
+    res.json({ success: true, data: { ...user.toPublicJSON(), dailyStreak } });
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
@@ -625,7 +630,8 @@ app.get('/api/users/:userId/profile', authenticateToken, async (req: any, res) =
       return;
     }
 
-    res.json({ success: true, data: user.toPublicJSON() });
+    const dailyStreak = await (DailyChallengeCompletion as any).getStreak(user._id.toString());
+    res.json({ success: true, data: { ...user.toPublicJSON(), dailyStreak } });
   } catch (error) {
     console.error('Error obteniendo el perfil de un usuario:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
@@ -1106,22 +1112,50 @@ app.post('/api/matchmaking/leave', authenticateToken, (req: any, res) => {
   res.json({ success: true, message: 'Saliendo de la cola' });
 });
 
+// Ranking de un día: todos los que completaron el reto ese día, ordenados por palabras
+// (empate: quien terminó antes). `userIds` filtra a un subconjunto (p. ej. amigos); sin él,
+// son todos. La reutilizan el reto diario (tu posición de hoy) y el ranking.
+async function rankedCompletionsForDate(
+  date: string,
+  userIds?: string[]
+): Promise<{ userId: string; wordCount: number; completedAt: Date }[]> {
+  const match: Record<string, unknown> = { date };
+  if (userIds) match.userId = { $in: userIds };
+
+  return (DailyChallengeCompletion as any).aggregate([
+    { $match: match },
+    { $addFields: { wordCount: { $size: '$wordsFound' } } },
+    { $project: { _id: 0, userId: 1, wordCount: 1, completedAt: 1 } },
+    { $sort: { wordCount: -1, completedAt: 1 } }
+  ]);
+}
+
+// Mi puesto de hoy entre todos los jugadores (ranking global), 1-based; null si no he jugado.
+async function myTodayRank(date: string, userId: string): Promise<{ rank: number; totalPlayers: number } | null> {
+  const ranked = await rankedCompletionsForDate(date);
+  const index = ranked.findIndex((r) => r.userId === userId);
+  if (index === -1) return null;
+  return { rank: index + 1, totalPlayers: ranked.length };
+}
+
 // Daily Challenge endpoints
 app.get('/api/daily-challenge', authenticateToken, async (req: any, res) => {
   try {
     // Get today's challenge
     const challenge = await (DailyChallenge as any).getTodaysChallenge();
-    
+
     // Check if user has already completed today's challenge
     const hasCompleted = await (DailyChallengeCompletion as any).hasUserCompletedToday(req.user.userId);
-    
+
     let wordsFound = [];
+    let rankInfo: { rank: number; totalPlayers: number } | null = null;
     if (hasCompleted) {
-      const completion = await (DailyChallengeCompletion as any).findOne({ 
-        userId: req.user.userId, 
-        date: challenge.date 
+      const completion = await (DailyChallengeCompletion as any).findOne({
+        userId: req.user.userId,
+        date: challenge.date
       });
       wordsFound = completion?.wordsFound || [];
+      rankInfo = await myTodayRank(challenge.date, req.user.userId);
     }
 
     // Calculate time until next challenge (next day at 00:00)
@@ -1129,7 +1163,7 @@ app.get('/api/daily-challenge', authenticateToken, async (req: any, res) => {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-    
+
     const timeUntilNext = tomorrow.getTime() - now.getTime();
     const totalSeconds = Math.floor(timeUntilNext / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -1145,6 +1179,8 @@ app.get('/api/daily-challenge', authenticateToken, async (req: any, res) => {
       },
       isCompleted: hasCompleted,
       wordsFound: hasCompleted ? wordsFound : undefined,
+      rank: rankInfo?.rank,
+      totalPlayers: rankInfo?.totalPlayers,
       timeUntilNext: {
         hours,
         minutes,
@@ -1219,15 +1255,80 @@ app.post('/api/daily-challenge/complete', authenticateToken, async (req: any, re
     });
     await completion.save();
 
-    res.json({ 
-      success: true, 
+    const rankInfo = await myTodayRank(challenge.date, req.user.userId);
+
+    res.json({
+      success: true,
       data: {
         wordsFound: validWords,
-        message: `¡Reto completado! Encontraste ${validWords.length} palabras.`
+        message: `¡Reto completado! Encontraste ${validWords.length} palabras.`,
+        rank: rankInfo?.rank ?? 1,
+        totalPlayers: rankInfo?.totalPlayers ?? 1
       }
     });
   } catch (error) {
     console.error('Error completando reto diario:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// Cuántas filas como máximo se devuelven; mi propia fila viaja aparte en `me` aunque quede
+// fuera de este límite, así que no hace falta subirlo para que la veas.
+const LEADERBOARD_LIMIT = 50;
+
+// Ranking del reto diario de hoy: global, o solo entre amigos. No hay ranking histórico — cada
+// día trae un prefijo distinto y no es justo comparar cuántas palabras dio uno con otro.
+app.get('/api/daily-challenge/leaderboard', authenticateToken, async (req: any, res) => {
+  try {
+    const scope: LeaderboardScope = req.query.scope === 'friends' ? 'friends' : 'global';
+    const challenge = await (DailyChallenge as any).getTodaysChallenge();
+
+    let userIds: string[] | undefined;
+    if (scope === 'friends') {
+      const friends = await (Friendship as any).getFriends(req.user.userId);
+      userIds = [req.user.userId, ...friends.map((f: any) => f.id.toString())];
+    }
+
+    const ranked = await rankedCompletionsForDate(challenge.date, userIds);
+    const myIndex = ranked.findIndex((r) => r.userId === req.user.userId);
+
+    const idsToHydrate = ranked.slice(0, LEADERBOARD_LIMIT).map((r) => r.userId);
+    if (myIndex >= LEADERBOARD_LIMIT) idsToHydrate.push(ranked[myIndex].userId);
+
+    const users = await User.find({ _id: { $in: idsToHydrate } }, 'username avatar elo');
+    const userById = new Map(users.map((u: any) => [u._id.toString(), u]));
+
+    const toEntry = (row: { userId: string; wordCount: number; completedAt: Date }, rank: number): DailyLeaderboardEntry | null => {
+      const user = userById.get(row.userId);
+      if (!user) return null; // la cuenta se borró justo entre medias: se omite, no rompe el ranking
+      return {
+        userId: row.userId,
+        username: user.username,
+        avatar: user.avatar || { ...DEFAULT_AVATAR },
+        elo: user.elo,
+        wordCount: row.wordCount,
+        completedAt: row.completedAt.toISOString(),
+        rank
+      };
+    };
+
+    const entries = ranked
+      .slice(0, LEADERBOARD_LIMIT)
+      .map((row, i) => toEntry(row, i + 1))
+      .filter((e): e is DailyLeaderboardEntry => e !== null);
+    const me = myIndex === -1 ? null : toEntry(ranked[myIndex], myIndex + 1);
+
+    const response: DailyLeaderboardResponse = {
+      date: challenge.date,
+      scope,
+      totalPlayers: ranked.length,
+      entries,
+      me
+    };
+
+    res.json({ success: true, data: response });
+  } catch (error) {
+    console.error('Error obteniendo el ranking del reto diario:', error);
     res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
@@ -1934,7 +2035,7 @@ const PUBLIC_PAGES = ['/', '/legal/privacidad', '/legal/terminos', '/legal/aviso
 // los buscadores penalizan). Hay que mantenerla en sincronía con las rutas del cliente.
 const CLIENT_ROUTES: RegExp[] = [
   /^\/auth(\/(register|forgot-password|reset-password|check-email|verify-email))?$/,
-  /^\/(menu|profile|daily-challenge|gracias|contacto|lobby)$/,
+  /^\/(menu|profile|daily-challenge|leaderboard|gracias|contacto|lobby)$/,
   /^\/lobby\/[^/]+$/,
   /^\/profile\/[^/]+$/,
   /^\/play\/(matchmaking|game|results)$/,
@@ -1943,7 +2044,7 @@ const CLIENT_ROUTES: RegExp[] = [
 ];
 
 // Rutas privadas o sin valor para un buscador: se piden fuera del rastreo.
-const ROBOTS_DISALLOW = ['/api/', '/auth', '/menu', '/play/', '/lobby', '/daily-challenge', '/profile', '/gracias'];
+const ROBOTS_DISALLOW = ['/api/', '/auth', '/menu', '/play/', '/lobby', '/daily-challenge', '/leaderboard', '/profile', '/gracias'];
 
 if (CLIENT_BUILT) {
   const CSR_SHELL = fs.existsSync(path.join(CLIENT_DIST, 'index.csr.html')) ? 'index.csr.html' : 'index.html';
