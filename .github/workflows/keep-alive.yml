@@ -3,6 +3,12 @@
 # Esto lo mantiene despierto pidiendo /api/health cada 10 min (no toca la
 # base de datos, solo responde un JSON fijo). No evita los reinicios de un
 # despliegue nuevo o un mantenimiento de Render, solo los de inactividad.
+#
+# GitHub no garantiza el minuto exacto de un cron en repos gratuitos — a veces
+# se salta uno o dos turnos bajo carga, así que el servicio puede llegar a
+# dormirse de verdad antes del siguiente ping. Si eso pasa, despertarlo tarda
+# más de lo que un primer intento corto aguanta: reintenta con más margen en
+# vez de darlo por caído a la primera.
 name: Keep Render awake
 
 on:
@@ -14,5 +20,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping /api/health
-        run: curl --fail --silent --show-error --max-time 20 https://wordwars-ab0f.onrender.com/api/health
+      - name: Ping /api/health (con reintento si el servicio estaba dormido)
+        run: |
+          curl --fail --silent --show-error --max-time 45 https://wordwars-ab0f.onrender.com/api/health \
+            || curl --fail --silent --show-error --max-time 90 https://wordwars-ab0f.onrender.com/api/health
